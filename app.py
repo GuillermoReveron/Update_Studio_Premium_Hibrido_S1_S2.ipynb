@@ -64,7 +64,7 @@ genai.configure(api_key=gemini_key)
 # Sidebar - Controls & Parameters
 st.sidebar.header("⚙️ Configuración de Lote")
 partida_arba = st.sidebar.text_input("Ingrese N° de Partida (ARBA)", value="014-123456-2026")
-cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
+cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General / Mixto", "Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
 zona_partido = st.sidebar.selectbox("Partido", ["Benito Juárez", "Tandil", "Azul", "Olavarría", "Tres Arroyos", "Necochea"])
 
 st.sidebar.markdown("---")
@@ -72,18 +72,18 @@ analizar_btn = st.sidebar.button("🚀 Analizar Lote en Vivo")
 
 # Main Dashboard Layout
 if analizar_btn:
-    with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital..."):
+    with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital global..."):
         try:
             # Generate AI agronomic analysis using Gemini
             model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = f"""
             Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
-            Realiza un informe técnico detallado para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo la actividad {cultivo_actual}.
+            Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
             
             Estructura el informe con los siguientes apartados profesionales:
-            1. **Estado Fenológico y Vigor Vegetativo (Índice NDVI / NDRE)**: Estimación satelital del desarrollo actual.
-            2. **Balance Hídrico y Estrés Hídrico (NDWI)**: Estado de humedad en perfil de suelo.
-            3. **Recomendaciones de Manejo Específicas**: Fertilización nitrogenada, monitoreo de sanidad o manejo general.
+            1. **Estado Fenológico y Vigor Vegetativo Global (Índice NDVI / NDRE)**: Estimación satelital abierta del desarrollo actual y cobertura del lote.
+            2. **Balance Hídrico y Estrés Hídrico (NDWI)**: Estado de humedad general en perfil de suelo y napas.
+            3. **Recomendaciones de Manejo Específicas**: Pautas agronómicas según la teledetección multiespectral.
             4. **Alertas Tempranas**: Posibles riesgos agronómicos para la campaña actual en la zona de {zona_partido}.
             
             Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
@@ -114,8 +114,8 @@ else:
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### 🛰️ Monitoreo Satelital")
-        st.write("Análisis de coberturas, índices verdes y comportamiento histórico de lotes agrícolas.")
+        st.markdown("### 🛰️ Monitoreo Satelital Global")
+        st.write("Análisis abierto de coberturas, índices verdes y comportamiento multiespectral de lotes agrícolas.")
     with c2:
         st.markdown("### 🤖 Diagnóstico Inteligente")
         st.write("Interpretación agronómica avanzada potenciada por Google Gemini para la toma de decisiones.")
