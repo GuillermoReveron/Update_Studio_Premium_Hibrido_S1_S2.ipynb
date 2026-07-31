@@ -1,0 +1,12 @@
+streamlit
+streamlit-folium
+folium
+earthengine-api
+google-genai
+gspread
+google-auth
+pandas
+requests
+reportlab
+Pillow
+pytz
