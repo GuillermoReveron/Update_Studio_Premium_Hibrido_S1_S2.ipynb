@@ -75,7 +75,7 @@ if analizar_btn:
     with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital global..."):
         try:
             # Generate AI agronomic analysis using Gemini
-            model = genai.GenerativeModel("gemini-pro")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = f"""
             Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
             Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
