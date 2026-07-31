@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 import os
 
 # Page Config
@@ -58,8 +58,8 @@ if not gemini_key:
     st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
     st.stop()
 
-# Configure Gemini
-genai.configure(api_key=gemini_key)
+# Initialize the new Google GenAI client
+client = genai.Client(api_key=gemini_key)
 
 # Sidebar - Controls & Parameters
 st.sidebar.header("⚙️ Configuración de Lote")
@@ -74,8 +74,6 @@ analizar_btn = st.sidebar.button("🚀 Analizar Lote en Vivo")
 if analizar_btn:
     with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital global..."):
         try:
-            # Generate AI agronomic analysis using Gemini
-            model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = f"""
             Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
             Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
@@ -89,7 +87,11 @@ if analizar_btn:
             Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
             """
             
-            response = model.generate_content(prompt)
+            # Generate content using the new client architecture
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+            )
             
             st.success("¡Análisis agronómico completado con éxito!")
             
