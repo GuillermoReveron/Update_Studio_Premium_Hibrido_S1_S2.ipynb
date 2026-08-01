@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import datetime
 
-# Page Config
+# Page Config with the custom title and favicon placeholder
 st.set_page_config(
     page_title="Update Studio AI — Plataforma Agrícola Avanzada",
     page_icon="🌱",
@@ -58,6 +58,10 @@ st.markdown("""
         margin-bottom: 25px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+    .sidebar-logo-container {
+        text-align: center;
+        padding: 10px 0 20px 0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +79,7 @@ except Exception:
 if not gemini_key:
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-# Header Section
+# Header Section with Brand integration
 st.markdown("<h1>🌱 Update Studio AI — Plataforma Agrícola Avanzada</h1>", unsafe_allow_html=True)
 st.markdown("### Sistema de Monitoreo Satelital, Radar y Diagnóstico por Inteligencia Artificial")
 
@@ -87,7 +91,16 @@ if not gemini_key:
 # Configure Gemini using the classic SDK
 genai.configure(api_key=gemini_key)
 
-# Sidebar - Controls & Parameters
+# Sidebar - Controls, Logo & Parameters
+st.sidebar.markdown('<div class="sidebar-logo-container">', unsafe_allow_html=True)
+# Aquí integramןo el logo oficial. Asegúrate de subir la imagen como 'logo_update_studio.png' a tu repositorio de GitHub.
+logo_path = "logo_update_studio.png"
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, use_container_width=True)
+else:
+    st.sidebar.markdown("### ⚡ UPDATE STUDIO AI")
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
 st.sidebar.header("⚙️ Configuración de Lote y Envío")
 
 # Entrada de Partida ARBA
@@ -247,7 +260,7 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # 1. VISUALIZACIÓN ESPACIAL: Imagen / Mapa Temático del Lote a Campo (Reemplazando el gráfico repetido)
+        # 1. VISUALIZACIÓN ESPACIAL: Imagen / Mapa Temático del Lote
         st.markdown("---")
         st.subheader("🛰️ Visualización Espacial y Mapa Temático del Lote")
         st.markdown(
@@ -269,7 +282,7 @@ if st.session_state.analisis_ejecutado:
             unsafe_allow_html=True
         )
 
-        # 2. GRÁFICO DE TENDENCIA: Único gráfico lineal histórico de biomasa y humedad
+        # 2. GRÁFICO DE TENDENCIA: Único gráfico lineal histórico
         st.subheader("📈 Evolución Histórica de Biomasa y Humedad (Tendencia)")
         df_tendencia = pd.DataFrame({
             "Fecha": ["15/07", "18/07", "21/07", "24/07", "27/07", "01/08"],
