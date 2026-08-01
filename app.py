@@ -248,7 +248,6 @@ if st.session_state.analisis_ejecutado:
             st.session_state.sensor_automatico = sensor_activo
             fecha_real_sat = datetime.date.today().strftime('%d/%m/%Y')
 
-            # Texto agronómico base garantizado (Respaldo offline blindado ante cualquier caída de API)
             reporte_generado = f"""## INFORME TÉCNICO AGRONÓMICO DETALLADO - UPDATE STUDIO
 Fecha de Procesamiento: {fecha_real_sat}
 ID del Lote: {partida_arba}
@@ -273,7 +272,7 @@ Interpretación técnica: Los valores espectrales obtenidos mediante la última 
 ---
 
 ### 2. ANÁLISIS AGRONÓMICO Y FISIOLÓGICO PROFUNDO
-El análisis combinado de los índices SAVI (0.71) y EVI (0.65) descarta interferencias por suelo desnudo o rastrojo, confirmando que la cobertura vegetal canopy intercepta eficientemente la radiación fotosintéticamente activa. Asimismo, el valor de GNDVI (0.68) y NDRE (0.45) indican una concentración adecuada de pigmentos clorofílicos y un estatus nutricional nitrogenado equilibrado, sin evidencias de estrés oxidativo o senescencia prematura.
+El análisis combinado de los índices SAVI (0.71) y EVI (0.65) descarta interferencias por suelo desnudo o rastrojo, confirmando que la cobertura vegetal canopy intercepta eficientemente la radiación fotosintéticamente activa. Asimismo, el valor de GNDVI (0.68) y NDRE (0.45) indican una concentración adecuada de pigmentos clorofílicos y un estatus nitrogenado equilibrado, sin evidencias de estrés oxidativo o senescencia prematura.
 
 ---
 
@@ -295,7 +294,6 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
 | Bajos / Lagunas | 36.25 ha | ANEGADO / ESPEJO DE AGUA | CORTE DE DOSIS 0 kg/ha (Exclusión total de aplicación sobre el espejo de agua). |
 """
 
-            # Intentamos enriquecer o sobreescribir con IA si responde con éxito
             try:
                 prompt_informe = f"""
                 Actúa como el sistema experto automatizado de Update Studio AI. Redacta un informe técnico agronómico profesional detallado para el lote {partida_arba} en {partido_activo} ({cultivo_actual}, 511.25 ha) con los índices NDVI 0.78, EVI 0.65, NDWI -0.12, SAVI 0.71, GNDVI 0.68 y NDRE 0.45.
@@ -362,7 +360,18 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # Visor Satelital
+        # MAPA INTERACTIVO NATIVO (Renderizado instantáneo por coordenadas del partido)
+        st.markdown("---")
+        st.subheader("🗺️ Ubicación Georreferenciada y Mapa Satelital del Lote")
+        
+        # Coordenadas aproximadas de centro según el partido para renderizar el mapa de campo
+        lat_map, lon_map = -37.0145, -59.5785 # Benito Juárez / Zona Centro PBA por defecto
+        if "Chaves" in partido_activo or partida_arba.strip().startswith("051"):
+            lat_map, lon_map = -38.3312, -60.0763
+            
+        df_mapa = pd.DataFrame({'lat': [lat_map], 'lon': [lon_map]})
+        st.map(df_mapa, zoom=12, use_container_width=True)
+
         st.markdown("---")
         st.subheader("🛰️ Visor Óptico Multiespectral y Zonas de Manejo (Sentinel-2)")
         
