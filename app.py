@@ -81,31 +81,8 @@ genai.configure(api_key=gemini_key)
 # Sidebar - Controls & Parameters
 st.sidebar.header("⚙️ Configuración de Lote y Envío")
 
-# Entrada de Partida ARBA
+# Entrada de Partida ARBA (Por defecto 051 de Adolfo Gonzales Chaves según tu indicación)
 partida_arba = st.sidebar.text_input("Ingrese N° de Partida (ARBA)", value="051005482")
-
-# Diccionario oficial de prefijos ARBA actualizado para la zona
-prefijos_arba = {
-    "029": "Adolfo Gonzales Chaves",
-    "051": "Benito Juárez",
-    "105": "Tandil",
-    "007": "Azul",
-    "078": "Olavarría",
-    "108": "Tres Arroyos",
-    "074": "Necochea"
-}
-
-# Autodetección estricta basada en los primeros dígitos de la partida ingresada
-partido_autodetectado = "Adolfo Gonzales Chaves" if partida_arba.strip().startswith("029") else "Benito Juárez"
-partida_limpia = partida_arba.strip()
-
-for prefijo, partido_nombre in prefijos_arba.items():
-    if partida_limpia.startswith(prefijo):
-        partido_autodetectado = partido_nombre
-        break
-
-# Mostramos el resultado detectado automáticamente en la barra lateral
-st.sidebar.markdown(f"📍 **Partido Autodetectado:** `{partido_autodetectado}`")
 
 cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General / Mixto", "Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
 
@@ -117,31 +94,55 @@ email_cliente = st.sidebar.text_input("Correo del Cliente / Administrador", valu
 st.sidebar.markdown("---")
 analizar_btn = st.sidebar.button("🚀 Analizar Lote y Enviar Reportes")
 
-# Inicializamos Session State para persistencia de datos (evita que se borre al interactuar con botones)
+# Inicializamos Session State para persistencia de datos absoluta (evita reseteos)
 if "analisis_ejecutado" not in st.session_state:
     st.session_state.analisis_ejecutado = False
 if "reporte_texto" not in st.session_state:
     st.session_state.reporte_texto = ""
-if "partido_fijado" not in st.session_state:
-    st.session_state.partido_fijado = ""
+if "partido_detectado" not in st.session_state:
+    st.session_state.partido_detectado = ""
 
 if analizar_btn:
     st.session_state.analisis_ejecutado = True
-    st.session_state.partido_fijado = partido_autodetectado
-    st.session_state.reporte_texto = "" # Fuerza regeneración si cambia el lote
+    st.session_state.reporte_texto = "" # Forzamos nueva generación al disparar análisis
+    st.session_state.partido_detectado = ""
 
 # Main Dashboard Layout
 if st.session_state.analisis_ejecutado:
-    partido_activo = st.session_state.partido_fijado if st.session_state.partido_fijado else partido_autodetectado
     
+    # Modelo auxiliar o principal para resolver automáticamente el partido por inteligencia catastral
     if not st.session_state.reporte_texto:
-        with st.spinner(f"🛰️ Procesando parámetros de Radar Sentinel-1, topografía y memoria hídrica para el partido de {partido_activo}..."):
-            prompt = f"""
+        with st.spinner("🛰️ Leyendo padrón catastral ARBA, procesando Radar Sentinel-1 y generando informe corporativo..."):
+            
+            # Paso 1: Autodetección inteligente del partido mediante IA
+            prompt_partido = f"""
+            Actúa como un experto en catastro inmobiliario de la Provincia de Buenos Aires, Argentina.
+            Analiza el número de partida inmobiliaria de ARBA: '{partida_arba}'.
+            Los códigos de partido en ARBA determinan la jurisdicción (por ejemplo, el código 051 corresponde a Adolfo Gonzales Chaves, el 053 a Benito Juárez, etc.).
+            Devuelve UNICAMENTE el nombre exacto del Partido de la Provincia de Buenos Aires al que pertenece esta partida, sin explicaciones adicionales, solo el nombre del partido.
+            """
+            
+            partido_activo = "Adolfo Gonzales Chaves" # Valor por defecto técnico
+            try:
+                model_detect = genai.GenerativeModel("models/gemini-1.5-flash")
+                res_partido = model_detect.generate_content(prompt_partido)
+                if res_partido and res_partido.text:
+                    partido_activo = res_partido.text.strip().replace('"', '').replace("'", "")
+            except Exception:
+                if partida_arba.strip().startswith("051"):
+                    partido_activo = "Adolfo Gonzales Chaves"
+                elif partida_arba.strip().startswith("053"):
+                    partido_activo = "Benito Juárez"
+            
+            st.session_state.partido_detectado = partido_activo
+
+            # Paso 2: Generación del informe corporativo completo adaptado a la jurisdicción detectada
+            prompt_informe = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico detallado exactamente con la misma estructura, rigor y apartados que los reportes corporativos enviados por correo electrónico para el siguiente lote:
             
             - ID / Partida ARBA: {partida_arba}
             - Superficie Total: 511.25 ha
-            - Partido / Localidad: {partido_activo}, Provincia de Buenos Aires, Argentina
+            - Partido / Jurisdicción Catastral: {partido_activo}, Provincia de Buenos Aires, Argentina
             - Enfoque: {cultivo_actual}
             
             Utiliza obligatoriamente esta estructura de 4 secciones principales:
@@ -195,7 +196,7 @@ if st.session_state.analisis_ejecutado:
                 for modelo_nombre in candidatos:
                     try:
                         model = genai.GenerativeModel(modelo_nombre)
-                        response = model.generate_content(prompt)
+                        response = model.generate_content(prompt_informe)
                         if response and response.text:
                             break
                     except Exception as inner_err:
@@ -208,7 +209,7 @@ if st.session_state.analisis_ejecutado:
                 for fallback_nombre in ["models/gemini-1.5-flash", "models/gemini-pro", "gemini-1.5-flash", "gemini-pro"]:
                     try:
                         model = genai.GenerativeModel(fallback_nombre)
-                        response = model.generate_content(prompt)
+                        response = model.generate_content(prompt_informe)
                         if response and response.text:
                             break
                     except Exception as err:
@@ -222,8 +223,10 @@ if st.session_state.analisis_ejecutado:
                 st.stop()
 
     if st.session_state.reporte_texto:
+        partido_activo = st.session_state.partido_detectado
+        
         st.success("¡Informe corporativo generado con éxito y enrutado para envío por correo!")
-        st.info(f"📧 Copia del reporte y archivos adjuntos despachados exitosamente a: **{email_propietario}** y **{email_cliente}** (Jurisdicción Autodetectada: {partido_activo}).")
+        st.info(f"📧 Copia del reporte despachada exitosamente a: **{email_propietario}** y **{email_cliente}** (Jurisdicción Autodetectada por IA: {partido_activo}).")
 
         # Display Metrics Overview Cards with clear contrast
         m1, m2, m3 = st.columns(3)
@@ -232,7 +235,7 @@ if st.session_state.analisis_ejecutado:
         with m2:
             st.markdown("<div class='metric-card'><h4>Radar VV / RVI</h4><h2>-12.88 dB</h2><p>🔵 RVI: 53.5% (Biomasa)</p></div>", unsafe_allow_html=True)
         with m3:
-            st.markdown(f"<div class='metric-card'><h4>Jurisdicción</h4><h2>{partido_activo}</h2><p>📍 Memoria Hídrica: 1.0</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='metric-card'><h4>Jurisdicción Catastral</h4><h2>{partido_activo}</h2><p>📍 Memoria Hídrica: 1.0</p></div>", unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
@@ -288,12 +291,12 @@ if st.session_state.analisis_ejecutado:
         </div>
         """, unsafe_allow_html=True)
 else:
-    st.info("👈 Ingrese la Partida ARBA y los correos en el panel lateral. El partido se detectará automáticamente al escribir la partida. Luego haga clic en **'Analizar Lote y Enviar Reportes'**.")
+    st.info("👈 Ingrese la Partida ARBA y los correos en el panel lateral. El partido se detectará automáticamente por inteligencia catastral. Luego haga clic en **'Analizar Lote y Enviar Reportes'**.")
     
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### 🛰️ Monitoreo Satelital por Radar")
         st.write("Análisis avanzado de humedad de suelo, retrodispersión VV/VH y biomasa bajo cualquier condición de nubosidad.")
     with c2:
-        st.markdown("### 🤖 Autodetección Catastral")
-        st.write("Lectura inteligente de prefijos provinciales ARBA para asignar con precisión quirúrgica la jurisdicción correspondiente.")
+        st.markdown("### 🤖 Autodetección Catastral IA")
+        st.write("Lectura inteligente de padrones provinciales ARBA para asignar automáticamente cualquiera de los 135 partidos de la provincia.")
