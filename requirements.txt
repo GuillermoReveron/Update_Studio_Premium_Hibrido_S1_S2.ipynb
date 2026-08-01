@@ -4,4 +4,4 @@ reportlab
 pandas
 matplotlib
 pillow
-earthengine-api
+requests
