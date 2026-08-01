@@ -51,11 +51,12 @@ st.markdown("""
     }
     .field-map-container {
         background-color: #0f172a;
-        border-radius: 10px;
-        padding: 15px;
+        border-radius: 12px;
+        padding: 25px;
         text-align: center;
         color: white;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -246,25 +247,29 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # VISUALIZACIÓN: Imagen del campo / Mapa Temático del Lote (En vez del doble gráfico)
+        # 1. VISUALIZACIÓN ESPACIAL: Imagen / Mapa Temático del Lote a Campo (Reemplazando el gráfico repetido)
         st.markdown("---")
         st.subheader("🛰️ Visualización Espacial y Mapa Temático del Lote")
         st.markdown(
             f"""
             <div class="field-map-container">
-                <h3>🗺️ Monitoreo Satelital a Campo — Partida {partida_arba}</h3>
-                <p><b>Partido:</b> {partido_activo} | <b>Superficie:</b> 511.25 ha</p>
-                <hr style="border-color: #334155;">
-                <p style="color: #94a3b8; font-style: italic;">[ Vista Multiespectral y de Radar Activa: Delineado de Lomas, Medias Lomas y Espejos de Agua / Lagunas ]</p>
-                <div style="background-color: #1e293b; padding: 10px; border-radius: 6px; display: inline-block; margin-top: 10px;">
-                    🟢 Zonas Óptimas (Lomas / Medias Lomas) &nbsp;|&nbsp; 🔵 Cuencas Hídricas / Lagunas (Corte de Dosis 0 kg/ha)
+                <h3>🗺️ Monitoreo Satelital y Zonas de Manejo — Partida {partida_arba}</h3>
+                <p><b>Partido:</b> {partido_activo} | <b>Superficie Total:</b> 511.25 ha</p>
+                <hr style="border-color: #334155; margin: 15px 0;">
+                <div style="background-color: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <p style="color: #38bdf8; font-weight: bold; margin-bottom: 5px;">📡 Estado del Lote a Campo (Radar Sentinel-1 + Altimetría)</p>
+                    <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0;">Integración de imágenes multiespectrales y microondas con delimitación estricta de cubetas hídricas y zonas arables.</p>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 20px; font-size: 0.85rem; flex-wrap: wrap;">
+                    <span style="background-color: #166534; padding: 6px 12px; border-radius: 6px;">🟢 Zona Lomas y Medias Lomas (Vigor Óptimo)</span>
+                    <span style="background-color: #1e40af; padding: 6px 12px; border-radius: 6px;">🔵 Espejos de Agua / Lagunas (Corte 0 kg/ha)</span>
                 </div>
             </div>
             """, 
             unsafe_allow_html=True
         )
 
-        # Gráfico de Evolución Temporal (Línea de tendencia histórica)
+        # 2. GRÁFICO DE TENDENCIA: Único gráfico lineal histórico de biomasa y humedad
         st.subheader("📈 Evolución Histórica de Biomasa y Humedad (Tendencia)")
         df_tendencia = pd.DataFrame({
             "Fecha": ["15/07", "18/07", "21/07", "24/07", "27/07", "01/08"],
