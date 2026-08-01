@@ -77,26 +77,37 @@ analizar_btn = st.sidebar.button("🚀 Analizar Lote en Vivo")
 # Main Dashboard Layout
 if analizar_btn:
     with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital global..."):
-        try:
-            prompt = f"""
-            Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
-            Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
-            
-            Estructura el informe con los siguientes apartados profesionales:
-            1. **Estado Fenológico y Vigor Vegetativo Global (Índice NDVI / NDRE)**: Estimación satelital abierta del desarrollo actual y cobertura del lote.
-            2. **Balance Hídrico y Estrés Hídrico (NDWI)**: Estado de humedad general en perfil de suelo y napas.
-            3. **Recomendaciones de Manejo Específicas**: Pautas agronómicas según la teledetección multiespectral.
-            4. **Alertas Tempranas**: Posibles riesgos agronómicos para la campaña actual en la zona de {zona_partido}.
-            
-            Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
-            """
-            
-            # Use gemini-2.5-flash which is standard for the new google-genai client
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-            )
-            
+        prompt = f"""
+        Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
+        Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
+        
+        Estructura el informe con los siguientes apartados profesionales:
+        1. **Estado Fenológico y Vigor Vegetativo Global (Índice NDVI / NDRE)**: Estimación satelital abierta del desarrollo actual y cobertura del lote.
+        2. **Balance Hídrico y Estrés Hídrico (NDWI)**: Estado de humedad general en perfil de suelo y napas.
+        3. **Recomendaciones de Manejo Específicas**: Pautas agronómicas según la teledetección multiespectral.
+        4. **Alertas Tempranas**: Posibles riesgos agronómicos para la campaña actual en la zona de {zona_partido}.
+        
+        Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
+        """
+        
+        # Lista de modelos en cascada (busca y prueba automáticamente de forma inteligente)
+        modelos_a_probar = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-flash"]
+        response = None
+        ultimo_error = None
+        
+        for m in modelos_a_probar:
+            try:
+                response = client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    break # ¡Encontró uno disponible y funcionó! Salimos del bucle con éxito.
+            except Exception as err:
+                ultimo_error = err
+                continue # Si falla, pasa al siguiente modelo de la lista sin romper la app
+        
+        if response and response.text:
             st.success("¡Análisis agronómico completado con éxito!")
             
             # Display Results in Cards
@@ -112,9 +123,8 @@ if analizar_btn:
             
             st.markdown("---")
             st.markdown(response.text)
-            
-        except Exception as e:
-            st.error(f"Ocurrió un error al generar el análisis con IA: {e}")
+        else:
+            st.error(f"No se pudo completar el análisis con ningún modelo disponible. Detalle del último error: {ultimo_error}")
 else:
     st.info("👈 Ingrese los datos del lote en el panel lateral y haga clic en **'Analizar Lote en Vivo'** para generar el reporte agronómico satelital.")
     
