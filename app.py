@@ -9,7 +9,6 @@ import requests
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
@@ -158,7 +157,7 @@ if analizar_btn:
     st.session_state.pdf_bytes = None
 
 # =====================================================================
-# FUNCIONES DE APOYO (Estilo Google Colab)
+# FUNCIONES DE APOYO (Estilo Google Colab con ReportLab)
 # =====================================================================
 
 def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_satelite, diagnostico_texto):
