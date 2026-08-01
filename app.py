@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS styling for a professional agricultural tech look
+# Custom CSS styling for a professional agricultural tech look with guaranteed text contrast
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
@@ -26,11 +26,26 @@ st.markdown("""
         background-color: #14532d;
     }
     .metric-card {
-        background-color: white;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
         padding: 20px;
         border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         margin-bottom: 20px;
+    }
+    .metric-card h4 {
+        color: #475569 !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 5px !important;
+    }
+    .metric-card h2 {
+        color: #0f172a !important;
+        font-size: 1.8rem !important;
+        margin-bottom: 5px !important;
+    }
+    .metric-card p {
+        color: #334155 !important;
+        font-size: 0.85rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -100,7 +115,7 @@ if analizar_btn:
 
         ---
 
-        ### 2. ANÁLISIS AGRONÓMICO Y FISIOLÓGICO PROFUNDOS
+        ### 2. ANÁLISIS AGRONÓMICO Y FISIOLÓGICOS PROFUNDOS
         (Desarrolla en profundidad la interacción entre la retrodispersión VV, el RVI y el estado fisiológico general del cultivo, el desarrollo foliar, la fotosíntesis y la ausencia de estrés severo).
 
         ---
@@ -154,14 +169,14 @@ if analizar_btn:
         if response and response.text:
             st.success("¡Informe corporativo generado con éxito!")
             
-            # Display Metrics Overview Cards
+            # Display Metrics Overview Cards with clear contrast
             m1, m2, m3 = st.columns(3)
             with m1:
-                st.markdown("<div class='metric-card'><h4>Superficie Total</h4><h2>511.25 ha</h2><p style='color:green;'>📍 Partida 051005482</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='metric-card'><h4>Superficie Total</h4><h2>511.25 ha</h2><p>📍 Partida 051005482</p></div>", unsafe_allow_html=True)
             with m2:
-                st.markdown("<div class='metric-card'><h4>Radar VV / RVI</h4><h2>-12.88 dB</h2><p style='color:blue;'>🔵 RVI: 53.5% (Biomasa)</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='metric-card'><h4>Radar VV / RVI</h4><h2>-12.88 dB</h2><p>🔵 RVI: 53.5% (Biomasa)</p></div>", unsafe_allow_html=True)
             with m3:
-                st.markdown(f"<div class='metric-card'><h4>Memoria Hídrica</h4><h2>1.0 (Lagunas)</h2><p style='color:gray;'>📍 {zona_partido}</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-card'><h4>Memoria Hídrica</h4><h2>1.0 (Lagunas)</h2><p>📍 {zona_partido}</p></div>", unsafe_allow_html=True)
             
             st.markdown("---")
             st.markdown(response.text)
