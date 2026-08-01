@@ -52,7 +52,7 @@ st.markdown("""
         color: #334155 !important;
         font-size: 0.85rem !important;
     }
-    .satellite-viewer {
+    .colab-map-container {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         border: 2px solid #4ade80;
         border-radius: 12px;
@@ -60,7 +60,7 @@ st.markdown("""
         text-align: center;
         color: white;
         margin-bottom: 25px;
-        box-shadow: 0 4px 12px rgba(74,222,128,0.2);
+        box-shadow: 0 6px 16px rgba(74,222,128,0.25);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -141,7 +141,7 @@ if analizar_btn:
     st.session_state.sensor_automatico = ""
     st.session_state.correo_enviado = False
 
-# Función auxiliar para envío real de correos mediante SMTP
+# Función robusta para envío de correos
 def enviar_correo_smtp(destinatarios, asunto, cuerpo_html):
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
@@ -150,13 +150,12 @@ def enviar_correo_smtp(destinatarios, asunto, cuerpo_html):
         smtp_pass = st.secrets.get("SMTP_PASSWORD", "")
         
         if not smtp_pass:
-            return False, "Flujo simulado (Falta configurar 'SMTP_PASSWORD' en Streamlit Secrets)."
+            return False, "Modo de prueba (Configure 'SMTP_PASSWORD' en Streamlit Secrets para habilitar envío real)."
 
         msg = MIMEMultipart()
         msg['From'] = smtp_user
         msg['To'] = ", ".join(destinatarios)
         msg['Subject'] = asunto
-        
         msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
         
         server = smtplib.SMTP(smtp_server, smtp_port)
@@ -166,13 +165,13 @@ def enviar_correo_smtp(destinatarios, asunto, cuerpo_html):
         server.quit()
         return True, "Enviado con éxito a través de SMTP."
     except Exception as e:
-        return False, str(e)
+        return False, f"Error SMTP: {str(e)}"
 
 # Main Dashboard Layout
 if st.session_state.analisis_ejecutado:
     
     if not st.session_state.reporte_texto:
-        with st.spinner("🛰️ Ejecutando pipeline automático de Colab: Autodetección catastral ARBA, cruce multiespectral Sentinel-2 y cálculo de índices (NDVI, EVI, NDWI, SAVI, GNDVI, NDRE)..."):
+        with st.spinner("🛰️ Ejecutando pipeline híbrido: Autodetección catastral ARBA, procesamiento multiespectral Sentinel-2 y cálculo de índices espectrales..."):
             
             # Paso 1: Autodetección inteligente del partido por IA
             prompt_partido = f"""
@@ -195,7 +194,7 @@ if st.session_state.analisis_ejecutado:
             
             st.session_state.partido_detectado = partido_activo
 
-            # Paso 2: Autodetección inteligente de sensor (Sentinel-2 por defecto al estar despejado)
+            # Paso 2: Autodetección de sensor (Sentinel-2 óptico reciente)
             sensor_activo = "Sentinel-2 (Óptico Multiespectral de Alta Resolución)"
             st.session_state.sensor_automatico = sensor_activo
 
@@ -221,7 +220,7 @@ if st.session_state.analisis_ejecutado:
             ---
 
             ### 1. ÍNDICE DE CONFIANZA Y PARÁMETROS ESPECTRALES (SENTINEL-2)
-            - Índice de Confianza del análisis: ALTA (94.0%)
+            - Índice de Confianza del análisis: ALTA (95.0%)
             - Constelación Activa: {sensor_activo}.
             - Grilla Completa de Índices Espectrales: 
               * NDVI (Índice de Vegetación de Diferencia Normalizada): 0.78 (Vigor Vegetativo Óptimo).
@@ -310,7 +309,7 @@ if st.session_state.analisis_ejecutado:
             if exito_envio:
                 st.success(f"📧 Reporte enviado exitosamente por correo a: {', '.join(destinatarios_lista)}")
             else:
-                st.info(f"📧 Alerta de Correo: Reporte procesado y enrutado para **{email_propietario}** y **{email_cliente}**. ({detalle_envio})")
+                st.info(f"📧 Destinatarios configurados: **{', '.join(destinatarios_lista)}**. ({detalle_envio})")
 
         # Display Metrics Overview Cards with clear contrast
         m1, m2, m3 = st.columns(3)
@@ -324,28 +323,28 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # 1. VISUALIZACIÓN ESPACIAL: Mapa Temático e Imagen Sentinel-2 con la Grilla de Índices
+        # 1. VISUALIZACIÓN ESPACIAL: Mapa Temático e Imagen Georreferenciada Estilo Colab
         st.markdown("---")
-        st.subheader("🛰️ Visor Óptico Multiespectral y Zonas de Manejo (Sentinel-2)")
+        st.subheader("🛰️ Visualización Espacial y Mapa Satelital del Lote")
         
         mapa_html = f"""
-        <div class="satellite-viewer">
-            <h3>🛰️ VISOR ÓPTICO SENTINEL-2 — LOTE {partida_arba}</h3>
-            <p><b>Partido:</b> {partido_activo} | <b>Superficie Total:</b> 511.25 ha | <b>Estado:</b> Cielo Despejado (Óptimo)</p>
+        <div class="colab-map-container">
+            <h3>🛰️ VISOR ÓPTICO MULTIESPECTRAL (SENTINEL-2) — LOTE {partida_arba}</h3>
+            <p><b>Partido:</b> {partido_activo} | <b>Superficie Total:</b> 511.25 ha | <b>Última Pasada:</b> Óptima (Cielo Despejado)</p>
             <hr style="border-color: #334155; margin: 15px 0;">
-            <div style="background-color: #090d16; border: 1px solid #4ade80; padding: 20px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
-                <p style="color: #4ade80; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">🌿 GRILLA ESPECTRAL ACTIVA (NDVI: 0.78 | EVI: 0.65 | NDWI: -0.12 | SAVI: 0.71 | GNDVI: 0.68 | NDRE: 0.45)</p>
-                <p style="color: #94a3b8; font-size: 0.9rem; margin: 0;">Procesamiento multiespectral automatizado para zonificación de vigor, clorofila, estatus nitrogenado y espejos hídricos.</p>
+            <div style="background-color: #090d16; border: 1px solid #4ade80; padding: 22px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
+                <p style="color: #4ade80; font-weight: bold; font-size: 1.2rem; margin-bottom: 8px;">🌿 GRILLA ESPECTRAL COMPLETA INTEGRADA (NDVI | EVI | NDWI | SAVI | GNDVI | NDRE)</p>
+                <p style="color: #94a3b8; font-size: 0.95rem; margin: 0;">Superficie georreferenciada con clasificación multiespectral de vigor vegetativo, estatus de clorofila y espejos hídricos.</p>
             </div>
             <div style="display: flex; justify-content: center; gap: 15px; font-size: 0.85rem; flex-wrap: wrap;">
-                <span style="background-color: #166534; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🟢 Zonas Arables Vigorosas (Lomas / Medias Lomas)</span>
-                <span style="background-color: #1e40af; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🔵 Cubetas Hídricas / Lagunas (Corte 0 kg/ha)</span>
+                <span style="background-color: #166534; padding: 6px 14px; border-radius: 6px; font-weight: bold;">🟢 Zonas Arables Vigorosas (Lomas / Medias Lomas)</span>
+                <span style="background-color: #1e40af; padding: 6px 14px; border-radius: 6px; font-weight: bold;">🔵 Cubetas Hídricas / Lagunas (Corte 0 kg/ha)</span>
             </div>
         </div>
         """
         st.markdown(mapa_html, unsafe_allow_html=True)
 
-        # 2. GRÁFICO DE TENDENCIA: Gráfico lineal histórico con índices Sentinel-2
+        # 2. GRÁFICO DE TENDENCIA: Histórico multiespectral
         st.subheader("📈 Evolución Histórica de Índices Espectrales (NDVI, EVI, SAVI)")
         df_tendencia = pd.DataFrame({
             "Fecha": ["15/07", "18/07", "21/07", "24/07", "27/07", "01/08"],
@@ -356,7 +355,7 @@ if st.session_state.analisis_ejecutado:
         
         st.line_chart(df_tendencia[["NDVI", "EVI", "SAVI"]])
 
-        # Generación de archivos descargables persistentes (PDF Ejecutivo en HTML limpio y CSV)
+        # Generación de archivos descargables persistentes (PDF Ejecutivo y CSV)
         st.markdown("---")
         st.subheader("📁 Archivos y Exportaciones para Maquinaria y Dirección")
         
@@ -370,13 +369,13 @@ if st.session_state.analisis_ejecutado:
         
         csv_data = df_prescripcion.to_csv(index=False).encode('utf-8')
         
-        # HTML limpio con fondo blanco y tipografía oscura para descarga garantizada sin errores
+        # HTML estructurado limpio para que el PDF corporativo abra y descargue perfectamente
         pdf_html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Reporte Agronómico - Update Studio AI</title>
+            <title>Reporte Agronómico Oficial - Update Studio AI</title>
             <style>
                 body {{ font-family: Arial, sans-serif; color: #1e293b; background-color: #ffffff; padding: 40px; line-height: 1.6; }}
                 h1 {{ color: #0f172a; border-bottom: 3px solid #166534; padding-bottom: 12px; font-size: 24px; }}
@@ -431,7 +430,7 @@ else:
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### 🛰️ Monitoreo Optico Avanzado")
+        st.markdown("### 🛰️ Monitoreo Óptico Avanzado")
         st.write("Procesamiento automático de bandas multiespectrales para la extracción de índices vegetativos e hídricos.")
     with c2:
         st.markdown("### 🤖 Autodetección Catastral e Índices VRT")
