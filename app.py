@@ -5,6 +5,8 @@ import pandas as pd
 import datetime
 import io
 import smtplib
+import folium
+from streamlit_folium import st_folium
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -156,8 +158,24 @@ if analizar_btn:
     st.session_state.grafico_bytes = None
 
 # =====================================================================
-# FUNCIONES DE APOYO (Estilo Colab: Gráficos y PDF en memoria)
+# FUNCIONES DE APOYO (Estilo Colab Original)
 # =====================================================================
+
+def generar_mapa_folium(partida, partido):
+    """Genera un mapa interactivo de Folium con capa satelital de Google (idéntico a Colab)"""
+    try:
+        # Coordenadas base según partido de PBA
+        lat, lon = -37.0145, -59.5785 # Benito Juárez por defecto
+        if "Chaves" in partido or str(partida).startswith("051"):
+            lat, lon = -38.3312, -60.0763
+
+        m = folium.Map(location=[lat, lon], zoom_start=14, tiles='OpenStreetMap')
+        folium.TileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', attr='Google', name='Google Satellite').add_to(m)
+        folium.Marker([lat, lon], popup=f"Partida ARBA: {partida} ({partido})", tooltip="Lote Monitorizado").add_to(m)
+        return m
+    except Exception as e:
+        print(f"⚠️ Error generando mapa folium: {e}")
+        return None
 
 def generar_curva_temporal_vigor_bytes(partida_lote):
     """Genera la curva temporal de vigor (NDVI) en bytes igual al script de Colab"""
@@ -436,16 +454,13 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # MAPA INTERACTIVO NATIVO EN PANTALLA
+        # MAPA INTERACTIVO NATIVO CON FOLIUM Y CAPA SATELITAL DE GOOGLE
         st.markdown("---")
-        st.subheader("🗺️ Ubicación Georreferenciada y Mapa Satelital del Lote")
+        st.subheader("🗺️ Ubicación Georreferenciada y Mapa Satelital de Lote (Folium)")
         
-        lat_map, lon_map = -37.0145, -59.5785 # Benito Juárez / Zona Centro PBA por defecto
-        if "Chaves" in partido_activo or partida_arba.strip().startswith("051"):
-            lat_map, lon_map = -38.3312, -60.0763
-            
-        df_mapa = pd.DataFrame({'lat': [lat_map], 'lon': [lon_map]})
-        st.map(df_mapa, zoom=12, use_container_width=True)
+        mapa_folium = generar_mapa_folium(partida_arba, partido_activo)
+        if mapa_folium:
+            st_folium(mapa_folium, width=1200, height=450)
 
         st.markdown("---")
         st.subheader("🛰️ Visor Óptico Multiespectral y Zonas de Manejo (Sentinel-2)")
