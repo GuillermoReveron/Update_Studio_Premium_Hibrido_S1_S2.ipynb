@@ -95,7 +95,7 @@ if not gemini_key:
 if gemini_key:
     genai.configure(api_key=gemini_key)
 
-# Inicializar Earth Engine de forma segura si existen credenciales en secrets
+# Inicializar Earth Engine de forma tolerante a fallos en la nube
 try:
     if "EE_PROJECT" in st.secrets:
         ee.Initialize(project=st.secrets["EE_PROJECT"])
@@ -181,7 +181,6 @@ def obtener_url_imagen_satelital(partida):
         ruta_catastro = 'projects/global-satellite-ai/assets/catastro_pba_limpio'
         catastro = ee.FeatureCollection(ruta_catastro)
         
-        # Búsqueda flexible de partida
         pda = str(partida).split('.')[0].strip()
         variaciones = [pda, '0' + pda, '00' + pda]
         lote_filtrado = catastro.filter(ee.Filter.Or(*(ee.Filter.eq('PDA', v) for v in variaciones)))
@@ -191,13 +190,12 @@ def obtener_url_imagen_satelital(partida):
             
         geometria = lote_filtrado.first().geometry()
         hoy = datetime.datetime.now()
-        inicio = hoy - datetime.timedelta(days=25)
+        inicio = hoy - datetime.timedelta(days=35)
         
-        # Colección Sentinel-2
         coleccion = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterBounds(geometria) \
             .filterDate(inicio.strftime('%Y-%m-%d'), (hoy + datetime.timedelta(days=1)).strftime('%Y-%m-%d')) \
-            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30)) \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 40)) \
             .sort('system:time_start', False)
             
         if coleccion.size().getInfo() > 0:
@@ -287,7 +285,6 @@ if st.session_state.analisis_ejecutado:
     if not st.session_state.reporte_texto:
         with st.spinner("🛰️ Ejecutando pipeline híbrido de Colab: Autodetección catastral ARBA, procesamiento multiespectral Sentinel-2 y extracción de imagen satelital real..."):
             
-            # Paso 1: Autodetección inteligente del partido por IA
             prompt_partido = f"""
             Actúa como un experto en catastro inmobiliario de la Provincia de Buenos Aires, Argentina.
             Analiza el número de partida inmobiliaria de ARBA: '{partida_arba}'.
@@ -308,16 +305,14 @@ if st.session_state.analisis_ejecutado:
             
             st.session_state.partido_detectado = partido_activo
 
-            # Paso 2: Obtener URL de la imagen satelital real desde Earth Engine
+            # Obtener URL de la imagen satelital real desde Earth Engine
             url_sat = obtener_url_imagen_satelital(partida_arba)
             st.session_state.sat_image_url = url_sat
 
-            # Paso 3: Autodetección de sensor
             sensor_activo = "Sentinel-2 (Óptico Multiespectral de Alta Resolución)"
             st.session_state.sensor_automatico = sensor_activo
             fecha_real_sat = datetime.date.today().strftime('%d/%m/%Y')
 
-            # Paso 4: Generación del informe técnico completo con la grilla completa de índices
             prompt_informe = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico completo y detallado con la misma estructura, rigor y todos los valores espectrales avanzados de Sentinel-2 para el siguiente lote:
             
@@ -405,8 +400,6 @@ if st.session_state.analisis_ejecutado:
 
             if response and response.text:
                 st.session_state.reporte_texto = response.text
-                
-                # Generamos de una vez los bytes del PDF real con ReportLab
                 nombre_pdf_gen = f"Reporte_Corporativo_{partida_arba}.pdf"
                 pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_activo, response.text)
                 st.session_state.pdf_bytes = pdf_bytes_gen
@@ -419,7 +412,6 @@ if st.session_state.analisis_ejecutado:
         sensor_activo = st.session_state.sensor_automatico
         fecha_real_sat = datetime.date.today().strftime('%d/%m/%Y')
         
-        # Generamos archivo CSV de prescripción en bytes
         df_prescripcion = pd.DataFrame({
             "Zona_ID": ["Loma_Norte", "Media_Loma", "Bajos_Laguna"],
             "Superficie_ha": [215.00, 260.00, 36.25],
@@ -430,7 +422,6 @@ if st.session_state.analisis_ejecutado:
         csv_data = df_prescripcion.to_csv(index=False).encode('utf-8')
         nombre_csv_gen = f"prescripcion_lote_{partida_arba}.csv"
 
-        # Envío real de correo a los destinatarios especificados
         if not st.session_state.correo_enviado:
             destinatarios_lista = [email_propietario.strip()]
             if email_cliente.strip() and "@" in email_cliente:
@@ -455,7 +446,6 @@ if st.session_state.analisis_ejecutado:
             else:
                 st.info(f"📧 Destinatarios configurados: **{', '.join(destinatarios_lista)}**. ({detalle_envio})")
 
-        # Display Metrics Overview Cards with clear contrast
         m1, m2, m3 = st.columns(3)
         with m1:
             st.markdown(f"<div class='metric-card'><h4>Superficie Total</h4><h2>511.25 ha</h2><p>📍 Partida {partida_arba}</p></div>", unsafe_allow_html=True)
@@ -467,7 +457,7 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # 1. VISUALIZACIÓN ESPACIAL: Imagen Satelital Real Extraída de Google Earth Engine (Estilo Colab)
+        # VISUALIZACIÓN ESPACIAL: Imagen Satelital Real Extraída de Google Earth Engine
         st.markdown("---")
         st.subheader("🛰️ Imagen Satelital Real del Lote y Zonas de Manejo (Sentinel-2)")
         
@@ -495,7 +485,6 @@ if st.session_state.analisis_ejecutado:
                 unsafe_allow_html=True
             )
 
-        # 2. GRÁFICO DE TENDENCIA: Gráfico lineal histórico con índices Sentinel-2
         st.subheader("📈 Evolución Histórica de Índices Espectrales (NDVI, EVI, SAVI)")
         df_tendencia = pd.DataFrame({
             "Fecha": ["15/07", "18/07", "21/07", "24/07", "27/07", "01/08"],
@@ -506,7 +495,6 @@ if st.session_state.analisis_ejecutado:
         
         st.line_chart(df_tendencia[["NDVI", "EVI", "SAVI"]])
 
-        # Generación de archivos descargables persistentes (PDF real generado con ReportLab y CSV)
         st.markdown("---")
         st.subheader("📁 Archivos y Exportaciones para Maquinaria y Dirección")
         
@@ -527,7 +515,6 @@ if st.session_state.analisis_ejecutado:
                     mime="application/pdf"
                 )
 
-        # Pie de página legal y de resguardo profesional en grisáceo
         st.markdown("""
         ---
         <div style="font-size: 0.82rem; color: #64748b; text-align: justify; line-height: 1.4; padding-top: 10px;">
