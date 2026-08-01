@@ -58,8 +58,12 @@ if not gemini_key:
     st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
     st.stop()
 
-# Initialize the new Google GenAI client
-client = genai.Client(api_key=gemini_key)
+# Initialize the GenAI client safely
+try:
+    client = genai.Client(api_key=gemini_key)
+except Exception as e:
+    st.error(f"Error al inicializar el cliente de IA: {e}")
+    st.stop()
 
 # Sidebar - Controls & Parameters
 st.sidebar.header("⚙️ Configuración de Lote")
@@ -87,7 +91,6 @@ if analizar_btn:
             Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
             """
             
-            # Generate content using the new client architecture
             response = client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt,
