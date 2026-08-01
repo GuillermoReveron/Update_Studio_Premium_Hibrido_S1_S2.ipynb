@@ -5,3 +5,5 @@ pandas
 matplotlib
 pillow
 requests
+folium
+streamlit-folium
