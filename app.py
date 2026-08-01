@@ -7,7 +7,7 @@ import datetime
 # Page Config
 st.set_page_config(
     page_title="Update Studio AI — Plataforma Agrícola Avanzada",
-    page_icon="logo_update_studio.png" if os.path.exists("logo_update_studio.png") else "🌱",
+    page_icon="Gemini_Generated_Image_6awbzt6awbzt6awb.png" if os.path.exists("Gemini_Generated_Image_6awbzt6awbzt6awb.png") else "🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -79,14 +79,14 @@ if not gemini_key:
 if gemini_key:
     genai.configure(api_key=gemini_key)
 
-# Ruta del archivo de logo subido al repositorio
-logo_path = "logo_update_studio.png"
+# Nombre exacto del archivo de logo subido al repositorio
+logo_path = "Gemini_Generated_Image_6awbzt6awbzt6awb.png"
 
 # Sidebar - Logo Oficial en la barra lateral
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, use_container_width=True)
 else:
-    st.sidebar.warning("⚠️ Falta subir la imagen 'logo_update_studio.png' a la raíz del repositorio de GitHub.")
+    st.sidebar.warning("⚠️ No se encuentra la imagen del logo en el repositorio.")
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Configuración de Lote y Envío")
