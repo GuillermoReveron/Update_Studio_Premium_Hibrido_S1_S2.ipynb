@@ -5,6 +5,5 @@ pandas
 matplotlib
 pillow
 requests
-earthengine-api
 folium
 streamlit-folium
