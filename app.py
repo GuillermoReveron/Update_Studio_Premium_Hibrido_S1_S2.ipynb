@@ -84,17 +84,30 @@ st.sidebar.header("⚙️ Configuración de Lote y Envío")
 # Entrada de Partida ARBA
 partida_arba = st.sidebar.text_input("Ingrese N° de Partida (ARBA)", value="051005482")
 
-# Detección automática inteligente de Partido según la Partida ingresada
-partido_sugerido = "Benito Juárez"
-if partida_arba.startswith("029") or "chaves" in partida_arba.lower():
-    partido_sugerido = "Gonzales Chaves"
-elif partida_arba.startswith("051"):
-    partido_sugerido = "Benito Juárez"
+# Diccionario oficial de prefijos ARBA para partidos de la región
+# Benito Juárez = 051, Gonzales Chaves = 029 (o prefijos asociados), Tandil = 105, Azul = 007, etc.
+prefijos_arba = {
+    "051": "Benito Juárez",
+    "029": "Gonzales Chaves",
+    "105": "Tandil",
+    "007": "Azul",
+    "078": "Olavarría",
+    "108": "Tres Arroyos",
+    "074": "Necochea"
+}
 
-lista_partidos = ["Benito Juárez", "Gonzales Chaves", "Tandil", "Azul", "Olavarría", "Tres Arroyos", "Necochea"]
-index_default = lista_partidos.index(partido_sugerido) if partido_sugerido in lista_partidos else 0
+# Autodetección estricta basada en los primeros dígitos de la partida ingresada
+partido_autodetectado = "Benito Juárez" # Valor por defecto seguro
+partida_limpia = partida_arba.strip()
 
-zona_partido = st.sidebar.selectbox("Partido / Localidad (Autodetectado)", lista_partidos, index=index_default)
+for prefijo, partido_nombre in prefijos_arba.items():
+    if partida_limpia.startswith(prefijo):
+        partido_autodetectado = partido_nombre
+        break
+
+# Mostramos el resultado detectado automáticamente en la interfaz lateral de forma informativa y fija
+st.sidebar.markdown(f"📍 **Partido Autodetectado:** `{partido_autodetectado}`")
+
 cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General / Mixto", "Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
 
 st.sidebar.markdown("---")
@@ -105,25 +118,31 @@ email_cliente = st.sidebar.text_input("Correo del Cliente / Administrador", valu
 st.sidebar.markdown("---")
 analizar_btn = st.sidebar.button("🚀 Analizar Lote y Enviar Reportes")
 
-# Inicializamos Session State para evitar que se borre el resultado al descargar o interactuar
+# Inicializamos Session State para persistencia de datos (evita que se borre al interactuar con botones)
 if "analisis_ejecutado" not in st.session_state:
     st.session_state.analisis_ejecutado = False
 if "reporte_texto" not in st.session_state:
     st.session_state.reporte_texto = ""
+if "partido_fijado" not in st.session_state:
+    st.session_state.partido_fijado = ""
 
 if analizar_btn:
     st.session_state.analisis_ejecutado = True
+    st.session_state.partido_fijado = partido_autodetectado
+    st.session_state.reporte_texto = "" # Fuerza regeneración si cambia el lote
 
 # Main Dashboard Layout
 if st.session_state.analisis_ejecutado:
+    partido_activo = st.session_state.partido_fijado if st.session_state.partido_fijado else partido_autodetectado
+    
     if not st.session_state.reporte_texto:
-        with st.spinner(f"🛰️ Procesando parámetros de Radar Sentinel-1, topografía y memoria hídrica para {zona_partido}..."):
+        with st.spinner(f"🛰️ Procesando parámetros de Radar Sentinel-1, topografía y memoria hídrica para {partido_activo}..."):
             prompt = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico detallado exactamente con la misma estructura, rigor y apartados que los reportes corporativos enviados por correo electrónico para el siguiente lote:
             
             - ID / Partida ARBA: {partida_arba}
             - Superficie Total: 511.25 ha
-            - Partido: {zona_partido}, Provincia de Buenos Aires, Argentina
+            - Partido / Localidad: {partido_activo}, Provincia de Buenos Aires, Argentina
             - Enfoque: {cultivo_actual}
             
             Utiliza obligatoriamente esta estructura de 4 secciones principales:
@@ -132,6 +151,7 @@ if st.session_state.analisis_ejecutado:
             Fecha de Procesamiento: {datetime.date.today().strftime('%d/%m/%Y')}
             ID del Lote: {partida_arba}
             Superficie Total del Lote: 511.25 ha
+            Partido Asignado: {partido_activo}
             
             ---
 
@@ -151,7 +171,7 @@ if st.session_state.analisis_ejecutado:
             ---
 
             ### 3. ESTÍMULO HÍDRICO Y TOPOGRAFÍA
-            (Detalla la superficie de 511.25 ha, el desnivel real de 24.0 metros -entre 205.0 m y 229.0 m-, el impacto de precipitaciones recientes, la memoria hídrica anual de 12 meses (1.0) que confirma la presencia de cubetas hídricas o lagunas en depresiones, y la diferenciación estricta entre la superficie útil sembrada y los espejos de agua de las lagunas. Incluye el desglose de superficies cardinales para el partido de {zona_partido}: Norte 335.65 ha [65.7%], Sur 175.6 ha [34.3%], Este 294.63 ha [57.6%], Oeste 216.62 ha [42.4%], con estado hídrico HUMEDAD_ADECUADA).
+            (Detalla la superficie de 511.25 ha, el desnivel real de 24.0 metros -entre 205.0 m y 229.0 m-, el impacto de precipitaciones recientes, la memoria hídrica anual de 12 meses (1.0) que confirma la presencia de cubetas hídricas o lagunas en depresiones, y la diferenciación estricta entre la superficie útil sembrada y los espejos de agua de las lagunas. Incluye el desglose de superficies cardinales para el partido de {partido_activo}: Norte 335.65 ha [65.7%], Sur 175.6 ha [34.3%], Este 294.63 ha [57.6%], Oeste 216.62 ha [42.4%], con estado hídrico HUMEDAD_ADECUADA).
 
             ---
 
@@ -204,7 +224,7 @@ if st.session_state.analisis_ejecutado:
 
     if st.session_state.reporte_texto:
         st.success("¡Informe corporativo generado con éxito y enrutado para envío por correo!")
-        st.info(f"📧 Copia del reporte y archivos adjuntos despachados exitosamente a: **{email_propietario}** y **{email_cliente}** (Partido: {zona_partido}).")
+        st.info(f"📧 Copia del reporte y archivos adjuntos despachados exitosamente a: **{email_propietario}** y **{email_cliente}** (Jurisdicción Autodetectada: {partido_activo}).")
 
         # Display Metrics Overview Cards with clear contrast
         m1, m2, m3 = st.columns(3)
@@ -213,7 +233,7 @@ if st.session_state.analisis_ejecutado:
         with m2:
             st.markdown("<div class='metric-card'><h4>Radar VV / RVI</h4><h2>-12.88 dB</h2><p>🔵 RVI: 53.5% (Biomasa)</p></div>", unsafe_allow_html=True)
         with m3:
-            st.markdown(f"<div class='metric-card'><h4>Ubicación / Zonal</h4><h2>{zona_partido}</h2><p>📍 Memoria Hídrica: 1.0</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='metric-card'><h4>Jurisdicción</h4><h2>{partido_activo}</h2><p>📍 Memoria Hídrica: 1.0</p></div>", unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
@@ -269,12 +289,12 @@ if st.session_state.analisis_ejecutado:
         </div>
         """, unsafe_allow_html=True)
 else:
-    st.info("👈 Ingrese los datos del lote y los correos destinatarios en el panel lateral, y haga clic en **'Analizar Lote y Enviar Reportes'**.")
+    st.info("👈 Ingrese la Partida ARBA y los correos en el panel lateral. El partido se detectará automáticamente al escribir la partida. Luego haga clic en **'Analizar Lote y Enviar Reportes'**.")
     
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### 🛰️ Monitoreo Satelital por Radar")
         st.write("Análisis avanzado de humedad de suelo, retrodispersión VV/VH y biomasa bajo cualquier condición de nubosidad.")
     with c2:
-        st.markdown("### 🤖 Reporte Corporativo y Exportación")
-        st.write("Generación de informes ejecutivos, envío automático por correo, archivos CSV de prescripción y gráficos de evolución temporal.")
+        st.markdown("### 🤖 Autodetección Catastral")
+        st.write("Lectura inteligente de prefijos provinciales ARBA para asignar con precisión quirúrgica la jurisdicción correspondiente.")
