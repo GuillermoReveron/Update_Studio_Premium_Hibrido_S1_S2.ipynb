@@ -230,16 +230,16 @@ def enviar_correo_smtp(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, no
 if st.session_state.analisis_ejecutado:
     
     if not st.session_state.reporte_texto:
-        with st.spinner("⚡ Procesando catastro ARBA, consultando índices Sentinel-2 y generando reporte técnico..."):
+        with st.spinner("⚡ Procesando catastro ARBA, consultando índices Sentinel-2 y generando reporte..."):
             
-            # Autodetección rápida de partido por IA
+            # Autodetección rápida de partido
             partido_activo = "Adolfo Gonzales Chaves"
             if partida_arba.strip().startswith("053"):
                 partido_activo = "Benito Juárez"
             else:
                 try:
                     prompt_partido = f"Devuelve UNICAMENTE el nombre del Partido de la Provincia de Buenos Aires para la partida de ARBA '{partida_arba}'."
-                    model_detect = genai.GenerativeModel("models/gemini-1.5-flash")
+                    model_detect = genai.GenerativeModel("gemini-1.5-flash")
                     res_partido = model_detect.generate_content(prompt_partido)
                     if res_partido and res_partido.text:
                         partido_activo = res_partido.text.strip().replace('"', '').replace("'", "")
@@ -251,7 +251,7 @@ if st.session_state.analisis_ejecutado:
             st.session_state.sensor_automatico = sensor_activo
             fecha_real_sat = datetime.date.today().strftime('%d/%m/%Y')
 
-            # Prompt agronómico rápido
+            # Prompt agronómico
             prompt_informe = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico completo para el lote:
             - ID / Partida ARBA: {partida_arba}
@@ -299,22 +299,23 @@ if st.session_state.analisis_ejecutado:
             """
             
             response = None
-            try:
-                model = genai.GenerativeModel("models/gemini-1.5-flash")
-                response = model.generate_content(prompt_informe)
-            except Exception as e:
+            # Sistema multi-modelo con tolerancia a fallos automáticos para evitar cortes
+            candidatos_modelos = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
+            for modelo_nombre in candidatos_modelos:
                 try:
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    model = genai.GenerativeModel(modelo_nombre)
                     response = model.generate_content(prompt_informe)
+                    if response and response.text:
+                        break
                 except Exception:
-                    pass
+                    continue
 
             if response and response.text:
                 st.session_state.reporte_texto = response.text
                 pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_activo, response.text)
                 st.session_state.pdf_bytes = pdf_bytes_gen
             else:
-                st.error("No se pudo completar el análisis en este momento. Reintente.")
+                st.error("No se pudo completar el análisis con los modelos de IA en este momento. Reintente.")
                 st.stop()
 
     if st.session_state.reporte_texto:
@@ -368,7 +369,7 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # Visor Satelital ágil y limpio
+        # Visor Satelital
         st.markdown("---")
         st.subheader("🛰️ Visor Óptico Multiespectral y Zonas de Manejo (Sentinel-2)")
         
