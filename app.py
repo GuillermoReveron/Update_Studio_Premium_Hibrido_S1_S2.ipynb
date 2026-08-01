@@ -90,8 +90,8 @@ if analizar_btn:
         Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
         """
         
-        # Lista de modelos en cascada (busca y prueba automáticamente de forma inteligente)
-        modelos_a_probar = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-flash"]
+        # Modelos oficiales estándar para el cliente de producción actual
+        modelos_a_probar = ["gemini-1.5-pro", "gemini-1.5-flash"]
         response = None
         ultimo_error = None
         
@@ -102,10 +102,10 @@ if analizar_btn:
                     contents=prompt,
                 )
                 if response and response.text:
-                    break # ¡Encontró uno disponible y funcionó! Salimos del bucle con éxito.
+                    break 
             except Exception as err:
                 ultimo_error = err
-                continue # Si falla, pasa al siguiente modelo de la lista sin romper la app
+                continue 
         
         if response and response.text:
             st.success("¡Análisis agronómico completado con éxito!")
