@@ -84,11 +84,10 @@ st.sidebar.header("⚙️ Configuración de Lote y Envío")
 # Entrada de Partida ARBA
 partida_arba = st.sidebar.text_input("Ingrese N° de Partida (ARBA)", value="051005482")
 
-# Diccionario oficial de prefijos ARBA para partidos de la región
-# Benito Juárez = 051, Gonzales Chaves = 029 (o prefijos asociados), Tandil = 105, Azul = 007, etc.
+# Diccionario oficial de prefijos ARBA actualizado para la zona
 prefijos_arba = {
+    "029": "Adolfo Gonzales Chaves",
     "051": "Benito Juárez",
-    "029": "Gonzales Chaves",
     "105": "Tandil",
     "007": "Azul",
     "078": "Olavarría",
@@ -97,7 +96,7 @@ prefijos_arba = {
 }
 
 # Autodetección estricta basada en los primeros dígitos de la partida ingresada
-partido_autodetectado = "Benito Juárez" # Valor por defecto seguro
+partido_autodetectado = "Adolfo Gonzales Chaves" if partida_arba.strip().startswith("029") else "Benito Juárez"
 partida_limpia = partida_arba.strip()
 
 for prefijo, partido_nombre in prefijos_arba.items():
@@ -105,7 +104,7 @@ for prefijo, partido_nombre in prefijos_arba.items():
         partido_autodetectado = partido_nombre
         break
 
-# Mostramos el resultado detectado automáticamente en la interfaz lateral de forma informativa y fija
+# Mostramos el resultado detectado automáticamente en la barra lateral
 st.sidebar.markdown(f"📍 **Partido Autodetectado:** `{partido_autodetectado}`")
 
 cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General / Mixto", "Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
@@ -136,7 +135,7 @@ if st.session_state.analisis_ejecutado:
     partido_activo = st.session_state.partido_fijado if st.session_state.partido_fijado else partido_autodetectado
     
     if not st.session_state.reporte_texto:
-        with st.spinner(f"🛰️ Procesando parámetros de Radar Sentinel-1, topografía y memoria hídrica para {partido_activo}..."):
+        with st.spinner(f"🛰️ Procesando parámetros de Radar Sentinel-1, topografía y memoria hídrica para el partido de {partido_activo}..."):
             prompt = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico detallado exactamente con la misma estructura, rigor y apartados que los reportes corporativos enviados por correo electrónico para el siguiente lote:
             
@@ -171,7 +170,7 @@ if st.session_state.analisis_ejecutado:
             ---
 
             ### 3. ESTÍMULO HÍDRICO Y TOPOGRAFÍA
-            (Detalla la superficie de 511.25 ha, el desnivel real de 24.0 metros -entre 205.0 m y 229.0 m-, el impacto de precipitaciones recientes, la memoria hídrica anual de 12 meses (1.0) que confirma la presencia de cubetas hídricas o lagunas en depresiones, y la diferenciación estricta entre la superficie útil sembrada y los espejos de agua de las lagunas. Incluye el desglose de superficies cardinales para el partido de {partido_activo}: Norte 335.65 ha [65.7%], Sur 175.6 ha [34.3%], Este 294.63 ha [57.6%], Oeste 216.62 ha [42.4%], con estado hídrico HUMEDAD_ADECUADA).
+            (Detalla la superficie de 511.25 ha, el impacto de precipitaciones recientes, la memoria hídrica anual de 12 meses (1.0) que confirma la presencia de cubetas hídricas o lagunas en depresiones, y la diferenciación estricta entre la superficie útil sembrada y los espejos de agua de las lagunas. Incluye el desglose de superficies cardinales para el partido de {partido_activo}: Norte 335.65 ha [65.7%], Sur 175.6 ha [34.3%], Este 294.63 ha [57.6%], Oeste 216.62 ha [42.4%], con estado hídrico HUMEDAD_ADECUADA).
 
             ---
 
