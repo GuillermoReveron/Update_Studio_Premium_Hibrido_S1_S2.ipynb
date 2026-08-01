@@ -50,7 +50,8 @@ st.markdown("""
         font-size: 0.85rem !important;
     }
     .field-map-container {
-        background-color: #0f172a;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 25px;
         text-align: center;
@@ -260,22 +261,22 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # 1. VISUALIZACIÓN ESPACIAL: Mapa Temático del Lote
+        # 1. VISUALIZACIÓN ESPACIAL: Mapa Temático e Imagen Georreferenciada del Lote a Campo
         st.markdown("---")
         st.subheader("🛰️ Visualización Espacial y Mapa Temático del Lote")
         st.markdown(
             f"""
             <div class="field-map-container">
-                <h3>🗺️ Monitoreo Satelital y Zonas de Manejo — Partida {partida_arba}</h3>
-                <p><b>Partido:</b> {partido_activo} | <b>Superficie Total:</b> 511.25 ha</p>
+                <h3>🗺️ Centro de Control Cartográfico y Satelital — Partida {partida_arba}</h3>
+                <p><b>Partido:</b> {partido_activo} | <b>Superficie Total:</b> 511.25 ha | <b>Sistema:</b> Sentinel-1 / Sentinel-2 VRT</p>
                 <hr style="border-color: #334155; margin: 15px 0;">
-                <div style="background-color: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <p style="color: #38bdf8; font-weight: bold; margin-bottom: 5px;">📡 Estado del Lote a Campo (Radar Sentinel-1 + Altimetría)</p>
-                    <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0;">Integración de imágenes multiespectrales y microondas con delimitación estricta de cubetas hídricas y zonas arables.</p>
+                <div style="background-color: #1e293b; border: 2px dashed #38bdf8; padding: 20px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
+                    <p style="color: #38bdf8; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">🛰️ COMPONENTE VISUAL Y MAPA DEL LOTE A CAMPO</p>
+                    <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;">Superficie georreferenciada con delimitación multiespectral de lomas, medias lomas y espejos hídricos permanentes.</p>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 20px; font-size: 0.85rem; flex-wrap: wrap;">
-                    <span style="background-color: #166534; padding: 6px 12px; border-radius: 6px;">🟢 Zona Lomas y Medias Lomas (Vigor Óptimo)</span>
-                    <span style="background-color: #1e40af; padding: 6px 12px; border-radius: 6px;">🔵 Espejos de Agua / Lagunas (Corte 0 kg/ha)</span>
+                    <span style="background-color: #166534; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🟢 Lomas / Medias Lomas (Aplicación Variable NPK)</span>
+                    <span style="background-color: #1e40af; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🔵 Lagunas / Bajos (Corte Automático 0 kg/ha)</span>
                 </div>
             </div>
             """, 
@@ -292,7 +293,7 @@ if st.session_state.analisis_ejecutado:
         
         st.line_chart(df_tendencia[["Biomasa_RVI", "Humedad_VV_dB"]])
 
-        # Generación de archivos descargables persistentes (PDF Ejecutivo y CSV)
+        # Generación de archivos descargables persistentes (PDF Ejecutivo con fondo blanco y CSV)
         st.markdown("---")
         st.subheader("📁 Archivos y Exportaciones para Maquinaria y Dirección")
         
@@ -305,7 +306,35 @@ if st.session_state.analisis_ejecutado:
         })
         
         csv_data = df_prescripcion.to_csv(index=False).encode('utf-8')
-        pdf_simulado_data = st.session_state.reporte_texto.encode('utf-8')
+        
+        # HTML limpio con fondo blanco y tipografía oscura para que el PDF corporativo salga perfecto y legible
+        pdf_html_content = f"""
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; color: #1e293b; background-color: #ffffff; padding: 30px; line-height: 1.6; }}
+                h1 {{ color: #0f172a; border-bottom: 2px solid #166534; padding-bottom: 10px; font-size: 22px; }}
+                h3 {{ color: #166534; margin-top: 20px; font-size: 16px; }}
+                .header {{ text-align: right; font-size: 12px; color: #64748b; margin-bottom: 20px; }}
+                .box {{ background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="header"><b>UPDATE STUDIO AI</b> — Reporte Técnico Oficial</div>
+            <h1>INFORME TÉCNICO AGRONÓMICO — PARTIDA {partida_arba}</h1>
+            <div class="box">
+                <p><b>Fecha:</b> {datetime.date.today().strftime('%d/%m/%Y')}</p>
+                <p><b>Jurisdicción / Partido:</b> {partido_activo}</p>
+                <p><b>Superficie Total:</b> 511.25 ha</p>
+                <p><b>Actividad / Cultivo:</b> {cultivo_actual}</p>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <div>{st.session_state.reporte_texto.replace(chr(10), '<br>')}</div>
+        </body>
+        </html>
+        """
+        pdf_data = pdf_html_content.encode('utf-8')
         
         col_d1, col_d2 = st.columns(2)
         with col_d1:
@@ -318,9 +347,9 @@ if st.session_state.analisis_ejecutado:
         with col_d2:
             st.download_button(
                 label="📄 Descargar Reporte Ejecutivo (PDF Corporativo)",
-                data=pdf_simulado_data,
-                file_name=f"Reporte_Corporativo_{partida_arba}.pdf",
-                mime="application/pdf"
+                data=pdf_data,
+                file_name=f"Reporte_Corporativo_{partida_arba}.html",
+                mime="text/html"
             )
 
         # Pie de página legal y de resguardo profesional en grisáceo
