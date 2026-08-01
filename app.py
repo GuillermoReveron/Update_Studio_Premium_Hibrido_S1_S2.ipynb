@@ -7,11 +7,14 @@ import io
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
+from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
 
 # ReportLab para generación de PDF real de alta calidad
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -140,6 +143,8 @@ if "correo_enviado" not in st.session_state:
     st.session_state.correo_enviado = False
 if "pdf_bytes" not in st.session_state:
     st.session_state.pdf_bytes = None
+if "grafico_bytes" not in st.session_state:
+    st.session_state.grafico_bytes = None
 
 if analizar_btn:
     st.session_state.analisis_ejecutado = True
@@ -148,13 +153,42 @@ if analizar_btn:
     st.session_state.sensor_automatico = ""
     st.session_state.correo_enviado = False
     st.session_state.pdf_bytes = None
+    st.session_state.grafico_bytes = None
 
 # =====================================================================
-# FUNCIONES DE APOYO (ReportLab y SMTP ultrarrápidos en memoria)
+# FUNCIONES DE APOYO (Estilo Colab: Gráficos y PDF en memoria)
 # =====================================================================
 
-def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_satelite, diagnostico_texto):
-    """Genera un archivo PDF corporativo real en memoria de manera instantánea con ReportLab"""
+def generar_curva_temporal_vigor_bytes(partida_lote):
+    """Genera la curva temporal de vigor (NDVI) en bytes igual al script de Colab"""
+    try:
+        plt.close('all')
+        fechas = ["15/05", "30/05", "15/06", "30/06", "15/07", "01/08"]
+        valores_ndvi = [0.62, 0.68, 0.71, 0.74, 0.76, 0.78]
+
+        fig, ax = plt.subplots(figsize=(6, 2.2), dpi=150)
+        ax.plot(fechas, valores_ndvi, marker='o', color='#166534', linewidth=2, markersize=5)
+        ax.set_title(f"Evolución Histórica de Vigor (NDVI) - Lote {partida_lote}", fontsize=9, fontweight='bold', color='#333')
+        ax.set_xlabel("Fecha", fontsize=7, color='#555')
+        ax.set_ylabel("NDVI", fontsize=7, color='#555')
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.set_ylim(0.0, 1.0)
+        plt.xticks(fontsize=6)
+        plt.yticks(fontsize=6)
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        plt.close(fig)
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception as e:
+        print(f"⚠️ Aviso generando gráfico temporal: {e}")
+        plt.close('all')
+        return None
+
+def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_satelite, diagnostico_texto, bytes_grafico):
+    """Genera el reporte PDF completo corporativo incluyendo gráfico de vigor"""
     try:
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
@@ -168,6 +202,14 @@ def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_
 
         story.append(Paragraph("Update Studio AI — Plataforma Agrícola Avanzada", estilo_titulo))
         story.append(Paragraph(f"<b>Informe Técnico de Lote:</b> {partida_lote} | <b>Superficie:</b> {superficie_ha} ha | <b>Fecha:</b> {fecha_foto} | <b>Tecnología:</b> {modo_satelite}", estilo_sub))
+
+        if bytes_grafico:
+            try:
+                img_graf = io.BytesIO(bytes_grafico)
+                story.append(RLImage(img_graf, width=380, height=130))
+                story.append(Spacer(1, 8))
+            except Exception as img_err:
+                print(f"⚠️ Error agregando gráfico al PDF: {img_err}")
 
         texto_limpio = str(diagnostico_texto).replace('**', '').replace('###', '').replace('##', '')
         for linea in texto_limpio.split('\n'):
@@ -188,8 +230,8 @@ def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_
         print(f"⚠️ Error generando PDF bytes: {e}")
         return None
 
-def enviar_correo_smtp(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, nombre_pdf, adjunto_csv_bytes, nombre_csv):
-    """Envío SMTP real ultrarrápido con adjuntos"""
+def enviar_correo_smtp_integral(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, nombre_pdf, adjunto_csv_bytes, nombre_csv, bytes_grafico):
+    """Envío SMTP integral idéntico al de Google Colab con incrustación de gráficos y adjuntos"""
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(st.secrets.get("SMTP_PORT", 465))
@@ -203,6 +245,12 @@ def enviar_correo_smtp(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, no
         
         msg_related = MIMEMultipart('related')
         msg_related.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
+
+        if bytes_grafico:
+            img_graf_mime = MIMEImage(bytes_grafico)
+            img_graf_mime.add_header('Content-ID', '<grafico_vigor>')
+            msg_related.attach(img_graf_mime)
+
         msg_root.attach(msg_related)
 
         if adjunto_pdf_bytes:
@@ -228,7 +276,7 @@ def enviar_correo_smtp(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, no
 if st.session_state.analisis_ejecutado:
     
     if not st.session_state.reporte_texto:
-        with st.spinner("⚡ Procesando catastro ARBA, consultando índices Sentinel-2 y generando reporte técnico..."):
+        with st.spinner("⚡ Procesando catastro ARBA, consultando índices Sentinel-2 y generando reporte integral..."):
             
             partido_activo = "Adolfo Gonzales Chaves"
             if partida_arba.strip().startswith("053"):
@@ -306,7 +354,9 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
                 pass
 
             st.session_state.reporte_texto = reporte_generado
-            pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_activo, reporte_generado)
+            bytes_graf = generar_curva_temporal_vigor_bytes(partida_arba)
+            st.session_state.grafico_bytes = bytes_graf
+            pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_activo, reporte_generado, bytes_graf)
             st.session_state.pdf_bytes = pdf_bytes_gen
 
     if st.session_state.reporte_texto:
@@ -329,22 +379,48 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
             if email_cliente.strip() and "@" in email_cliente:
                 destinatarios_lista.append(email_cliente.strip())
                 
-            asunto_mail = f"🌱 Reporte Técnico Oficial Update Studio AI - Lote {partida_arba} ({partido_activo})"
-            cuerpo_mail_html = f"<html><body><h3>Informe Técnico Agronómico - Update Studio AI</h3><p><b>Partida:</b> {partida_arba}</p><p><b>Partido:</b> {partido_activo}</p><p><b>Sensor:</b> {sensor_activo}</p><hr>{st.session_state.reporte_texto.replace(chr(10), '<br>')}</body</html>"
+            asunto_mail = f"📋 Reporte Agronómico Integral - Lote {partida_arba} (511.25 ha) - Update Studio AI"
+            cuerpo_mail_html = f"""
+<html>
+<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 650px; margin: auto; padding: 20px; background-color: #f0f2f5;">
+    <div style="background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+        <h1 style="color: #166534; margin-bottom: 5px;">Update Studio AI</h1>
+        <h2 style="color: #333; margin-top: 0;">Reporte de Telemetría: Lote {partida_arba}</h2>
+        <p style="font-size: 14px; color: #555;">Superficie Total: <strong>511.25 ha</strong> | Procesado el {fecha_real_sat} | Estado: <strong>Online</strong>.</p>
+
+        {"" if not st.session_state.grafico_bytes else "<div style='margin: 20px 0;'><img src='cid:grafico_vigor' alt='Curva Temporal de Vigor' style='width: 100%; border-radius: 10px; border: 1px solid #ddd;'></div>"}
+
+        <h3 style="color: #166534;">🤖 Diagnóstico Agronómico del Algoritmo</h3>
+        <div style="font-size: 14px; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #166534;">
+            {st.session_state.reporte_texto.replace(chr(10), '<br>')}
+        </div>
+
+        <div style="margin-top: 20px; padding: 12px; background-color: #e8f0fe; border-radius: 8px; font-size: 13px; color: #1967d2;">
+            📎 <strong>Archivos Adjuntos:</strong> Se adjuntan el informe corporativo en <code>Reporte_Corporativo_{partida_arba}.pdf</code> y el archivo de prescripción para maquinaria <code>{nombre_csv_gen}</code>.
+        </div>
+
+        <p style="font-size: 11px; color: #70757a; margin-top: 25px; font-style: italic; border-top: 1px solid #eee; padding-top: 10px;">
+            <strong>Nota:</strong> Este diagnóstico es generado automáticamente por el sistema de Update Studio AI, basándose en datos satelitales. El mismo debe ser interpretado como una herramienta de apoyo a la decisión y no reemplaza el criterio profesional de un agrónomo en campo ante la toma de decisiones críticas de manejo.
+        </p>
+    </div>
+</body>
+</html>
+"""
             
-            exito_envio, detalle_envio = enviar_correo_smtp(
+            exito_envio, detalle_envio = enviar_correo_smtp_integral(
                 destinatarios_lista, 
                 asunto_mail, 
                 cuerpo_mail_html, 
                 st.session_state.pdf_bytes, 
                 f"Reporte_Corporativo_{partida_arba}.pdf", 
                 csv_data, 
-                nombre_csv_gen
+                nombre_csv_gen,
+                st.session_state.grafico_bytes
             )
             st.session_state.correo_enviado = True
             
             if exito_envio:
-                st.success(f"📧 Reporte enviado exitosamente por correo a: {', '.join(destinatarios_lista)}")
+                st.success(f"📧 Reporte integral y archivos adjuntos enviados exitosamente por correo a: {', '.join(destinatarios_lista)}")
             else:
                 st.info(f"📧 Destinatarios configurados: **{', '.join(destinatarios_lista)}**.")
 
@@ -360,11 +436,10 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # MAPA INTERACTIVO NATIVO (Renderizado instantáneo por coordenadas del partido)
+        # MAPA INTERACTIVO NATIVO EN PANTALLA
         st.markdown("---")
         st.subheader("🗺️ Ubicación Georreferenciada y Mapa Satelital del Lote")
         
-        # Coordenadas aproximadas de centro según el partido para renderizar el mapa de campo
         lat_map, lon_map = -37.0145, -59.5785 # Benito Juárez / Zona Centro PBA por defecto
         if "Chaves" in partido_activo or partida_arba.strip().startswith("051"):
             lat_map, lon_map = -38.3312, -60.0763
@@ -396,10 +471,10 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
 
         st.subheader("📈 Evolución Histórica de Índices Espectrales (NDVI, EVI, SAVI)")
         df_tendencia = pd.DataFrame({
-            "Fecha": ["15/07", "18/07", "21/07", "24/07", "27/07", "01/08"],
-            "NDVI": [0.72, 0.74, 0.75, 0.76, 0.77, 0.78],
-            "EVI": [0.58, 0.60, 0.61, 0.63, 0.64, 0.65],
-            "SAVI": [0.65, 0.67, 0.68, 0.69, 0.70, 0.71]
+            "Fecha": ["15/05", "30/05", "15/06", "30/06", "15/07", "01/08"],
+            "NDVI": [0.62, 0.68, 0.71, 0.74, 0.76, 0.78],
+            "EVI": [0.50, 0.54, 0.57, 0.60, 0.63, 0.65],
+            "SAVI": [0.55, 0.60, 0.63, 0.66, 0.69, 0.71]
         }).set_index("Fecha")
         
         st.line_chart(df_tendencia[["NDVI", "EVI", "SAVI"]])
