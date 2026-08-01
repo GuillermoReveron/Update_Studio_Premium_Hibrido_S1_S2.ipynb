@@ -97,7 +97,7 @@ cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📧 Destinatarios de Alerta (Mail)")
-email_propietario = st.sidebar.text_input("Tu Correo (Propietario/Técnico)", value="guillermoreveron@gmail.com")
+email_propietario = st.sidebar.text_input("Tu Correo (Propietario/Técnico)", value="update.studiob.juarez@gmail.com")
 email_cliente = st.sidebar.text_input("Correo del Cliente / Administrador", value="cliente@estancia.com")
 
 st.sidebar.markdown("---")
