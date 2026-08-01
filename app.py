@@ -72,7 +72,7 @@ analizar_btn = st.sidebar.button("🚀 Analizar Lote en Vivo")
 
 # Main Dashboard Layout
 if analizar_btn:
-    with st.spinner("🛰️ Procesando índices agronómicos y generando diagnóstico satelital global..."):
+    with st.spinner("🛰️ Procesando índices agronómicos y consultando modelos disponibles..."):
         prompt = f"""
         Actúa como un Ingeniero Agrónomo experto en teledetección y agricultura de precisión en la Provincia de Buenos Aires, Argentina.
         Realiza un informe técnico detallado y global para el lote ubicado en el partido de {zona_partido}, con Partida ARBA {partida_arba}, bajo el enfoque de {cultivo_actual}.
@@ -86,21 +86,47 @@ if analizar_btn:
         Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
         """
         
-        # Cascada automática de modelos con la librería clásica
-        modelos_a_probar = ["gemini-pro", "gemini-1.5-flash", "gemini-1.5-pro"]
         response = None
         ultimo_error = None
         
-        for nombre_modelo in modelos_a_probar:
-            try:
-                model = genai.GenerativeModel(nombre_modelo)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    break
-            except Exception as err:
-                ultimo_error = err
-                continue
-        
+        # Estrategia de búsqueda dinámica adaptada a la cuenta
+        try:
+            # Listamos los modelos compatibles con generación de texto soportados por la cuenta
+            modelos_disponibles = [
+                m.name for m in genai.list_models() 
+                if 'generateContent' in m.supported_generation_methods
+            ]
+            
+            # Filtramos preferentemente los que contengan 'flash' o 'pro'
+            candidatos = [m for m in modelos_disponibles if 'flash' in m or 'pro' in m]
+            if not candidatos:
+                candidatos = modelos_disponibles # Si no hay filtro, usamos todos los disponibles
+                
+            for modelo_nombre in candidatos:
+                try:
+                    model = genai.GenerativeModel(modelo_nombre)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        break
+                except Exception as inner_err:
+                    ultimo_error = inner_err
+                    continue
+                    
+        except Exception as outer_err:
+            ultimo_error = outer_err
+            
+        # Fallback estricto por si el listado dinámico falla en red
+        if not response or not response.text:
+            for fallback_nombre in ["models/gemini-1.5-flash", "models/gemini-pro", "gemini-1.5-flash", "gemini-pro"]:
+                try:
+                    model = genai.GenerativeModel(fallback_nombre)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        break
+                except Exception as err:
+                    ultimo_error = err
+                    continue
+
         if response and response.text:
             st.success("¡Análisis agronómico completado con éxito!")
             
@@ -118,7 +144,7 @@ if analizar_btn:
             st.markdown("---")
             st.markdown(response.text)
         else:
-            st.error(f"No se pudo completar el análisis con ningún modelo disponible. Detalle del último error: {ultimo_error}")
+            st.error(f"No se pudo completar el análisis. Detalle técnico del error: {ultimo_error}")
 else:
     st.info("👈 Ingrese los datos del lote en el panel lateral y haga clic en **'Analizar Lote en Vivo'** para generar el reporte agronómico satelital.")
     
