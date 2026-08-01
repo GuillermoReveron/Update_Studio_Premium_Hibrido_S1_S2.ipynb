@@ -4,10 +4,10 @@ import os
 import pandas as pd
 import datetime
 
-# Page Config con favicon y título oficial
+# Page Config
 st.set_page_config(
     page_title="Update Studio AI — Plataforma Agrícola Avanzada",
-    page_icon="logo_update_studio.png" if os.path.exists("logo_update_studio.png") else "🌱",
+    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -58,11 +58,14 @@ st.markdown("""
         margin-bottom: 25px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .main-header {
+    .logo-badge {
         display: flex;
         align-items: center;
-        gap: 15px;
-        margin-bottom: 5px;
+        gap: 12px;
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #f8fafc;
+        padding: 10px 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -81,19 +84,35 @@ except Exception:
 if not gemini_key:
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-# Sidebar - Logo Oficial arriba en la barra lateral
-logo_path = "logo_update_studio.png"
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, use_container_width=True)
+# Configure Gemini using the classic SDK
+if gemini_key:
+    genai.configure(api_key=gemini_key)
+
+# Nombres posibles del archivo de logo en el repositorio
+nombres_logo = ["logo_update_studio.png", "logo.png", "update_studio_logo.png"]
+logo_encontrado = None
+for nombre in nombres_logo:
+    if os.path.exists(nombre):
+        logo_encontrado = nombre
+        break
+
+# Sidebar - Logo Oficial en la barra lateral
+if logo_encontrado:
+    st.sidebar.image(logo_encontrado, use_container_width=True)
 else:
-    st.sidebar.markdown("### ⚡ UPDATE STUDIO AI")
+    # Si el archivo aún no fue subido a GitHub, mostramos un aviso visual claro en la barra lateral
+    st.sidebar.markdown("""
+        <div style="background-color: #1e293b; padding: 12px; border-radius: 8px; text-align: center; border: 1px dashed #38bdf8;">
+            <p style="color: #38bdf8; font-weight: bold; margin: 0; font-size: 0.9rem;">⚡ UPDATE STUDIO AI</p>
+            <p style="color: #94a3b8; font-size: 0.75rem; margin: 5px 0 0 0;">(Suba su imagen como 'logo_update_studio.png' a GitHub)</p>
+        </div>
+    """, unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Configuración de Lote y Envío")
 
 # Entrada de Partida ARBA
 partida_arba = st.sidebar.text_input("Ingrese N° de Partida (ARBA)", value="051005482")
-
 cultivo_actual = st.sidebar.selectbox("Cultivo / Actividad", ["Monitoreo General / Mixto", "Soja de 2ra", "Maíz Tardío", "Trigo / Pastura", "Ganadería / Recría"])
 
 st.sidebar.markdown("---")
@@ -104,12 +123,14 @@ email_cliente = st.sidebar.text_input("Correo del Cliente / Administrador", valu
 st.sidebar.markdown("---")
 analizar_btn = st.sidebar.button("🚀 Analizar Lote y Enviar Reportes")
 
-# Header Section Principal con el Logo Oficial integrado al lado del título
-col_logo_head, col_title_head = st.columns([1, 8])
-with col_logo_head:
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=75)
-with col_title_head:
+# Header Section Principal
+if logo_encontrado:
+    col_l, col_t = st.columns([1, 10])
+    with col_l:
+        st.image(logo_encontrado, width=70)
+    with col_t:
+        st.markdown("<h1>Update Studio AI — Plataforma Agrícola Avanzada</h1>", unsafe_allow_html=True)
+else:
     st.markdown("<h1>Update Studio AI — Plataforma Agrícola Avanzada</h1>", unsafe_allow_html=True)
 
 st.markdown("### Sistema de Monitoreo Satelital, Radar y Diagnóstico por Inteligencia Artificial")
@@ -118,9 +139,6 @@ st.markdown("### Sistema de Monitoreo Satelital, Radar y Diagnóstico por Inteli
 if not gemini_key:
     st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
     st.stop()
-
-# Configure Gemini using the classic SDK
-genai.configure(api_key=gemini_key)
 
 # Inicializamos Session State para persistencia absoluta
 if "analisis_ejecutado" not in st.session_state:
@@ -141,7 +159,6 @@ if st.session_state.analisis_ejecutado:
     if not st.session_state.reporte_texto:
         with st.spinner("🛰️ Leyendo padrón catastral ARBA, procesando Radar Sentinel-1 y generando informe corporativo..."):
             
-            # Autodetección inteligente del partido por IA
             prompt_partido = f"""
             Actúa como un experto en catastro inmobiliario de la Provincia de Buenos Aires, Argentina.
             Analiza el número de partida inmobiliaria de ARBA: '{partida_arba}'.
@@ -162,7 +179,6 @@ if st.session_state.analisis_ejecutado:
             
             st.session_state.partido_detectado = partido_activo
 
-            # Generación del informe corporativo completo
             prompt_informe = f"""
             Actúa como el sistema experto automatizado de Update Studio AI. Genera un informe técnico agronómico detallado exactamente con la misma estructura, rigor y apartados que los reportes corporativos enviados por correo electrónico para el siguiente lote:
             
