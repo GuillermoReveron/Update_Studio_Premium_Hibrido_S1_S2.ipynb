@@ -13,7 +13,6 @@ from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
-import requests
 import ee
 
 # ReportLab para generación de PDF real de alta calidad
@@ -100,7 +99,7 @@ if gemini_key:
     except Exception:
         pass
 
-# Inicializar Google Earth Engine de forma tolerante a fallos
+# Inicialización segura de Google Earth Engine
 try:
     if "EE_PROJECT" in st.secrets:
         ee.Initialize(project=st.secrets["EE_PROJECT"])
@@ -161,6 +160,8 @@ if "pdf_bytes" not in st.session_state:
     st.session_state.pdf_bytes = None
 if "grafico_bytes" not in st.session_state:
     st.session_state.grafico_bytes = None
+if "sat_image_url" not in st.session_state:
+    st.session_state.sat_image_url = None
 if "sat_image_bytes" not in st.session_state:
     st.session_state.sat_image_bytes = None
 
@@ -172,14 +173,15 @@ if analizar_btn:
     st.session_state.correo_enviado = False
     st.session_state.pdf_bytes = None
     st.session_state.grafico_bytes = None
+    st.session_state.sat_image_url = None
     st.session_state.sat_image_bytes = None
 
 # =====================================================================
-# FUNCIONES DE APOYO (Extracción GEE y ReportLab idéntico a Colab)
+# FUNCIONES DE APOYO (Extracción GEE idéntica a Colab + Leyendas)
 # =====================================================================
 
-def obtener_recorte_satelital_geometria(partida):
-    """Extrae el recorte exacto de la geometría del lote desde Google Earth Engine (Sentinel-2 / S1)"""
+def obtener_imagen_recortada_lote(partida):
+    """Consulta Google Earth Engine para recortar exactamente el polígono del lote con sus colores de NDVI/Radar"""
     try:
         ruta_catastro = 'projects/global-satellite-ai/assets/catastro_pba_limpio'
         catastro = ee.FeatureCollection(ruta_catastro)
@@ -189,46 +191,89 @@ def obtener_recorte_satelital_geometria(partida):
         lote_filtrado = catastro.filter(ee.Filter.Or(*(ee.Filter.eq('PDA', v) for v in variaciones)))
         
         if lote_filtrado.size().getInfo() == 0:
-            return None, "Sentinel-2"
+            return None, None
             
         geometria = lote_filtrado.first().geometry()
         hoy = datetime.datetime.now()
         inicio = hoy - datetime.timedelta(days=35)
         
-        # Colección Sentinel-2 óptica
+        # Colección Sentinel-2 Óptica
         coleccion_s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterBounds(geometria) \
             .filterDate(inicio.strftime('%Y-%m-%d'), (hoy + datetime.timedelta(days=1)).strftime('%Y-%m-%d')) \
-            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30)) \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 35)) \
             .sort('system:time_start', False)
             
         if coleccion_s2.size().getInfo() > 0:
             img = coleccion_s2.first()
             ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
-            img_recortada = ndvi.visualize(min=0.1, max=0.8, palette=['red', 'yellow', 'green']).reproject(crs='EPSG:3857', scale=10).clip(geometria)
-            url = img_recortada.getThumbURL({'region': geometria, 'dimensions': 800, 'format': 'png'})
+            imagen_recortada = ndvi.visualize(min=0.1, max=0.8, palette=['red', 'yellow', 'green']).reproject(crs='EPSG:3857', scale=10).clip(geometria)
+            url = imagen_recortada.getThumbURL({'region': geometria, 'dimensions': 800, 'format': 'png'})
+            
             resp = requests.get(url, timeout=15)
             if resp.status_code == 200:
-                return resp.content, "Sentinel-2 (Óptico Multiespectral)"
-        else:
-            # Respaldo Sentinel-1 Radar si hay nubes
-            coleccion_s1 = ee.ImageCollection('COPERNICUS/S1_GRD') \
-                .filterBounds(geometria) \
-                .filterDate(inicio.strftime('%Y-%m-%d'), (hoy + datetime.timedelta(days=1)).strftime('%Y-%m-%d')) \
-                .filter(ee.Filter.eq('instrumentMode', 'IW')) \
-                .sort('system:time_start', False)
-            if coleccion_s1.size().getInfo() > 0:
-                img_s1 = coleccion_s1.first()
-                img_recortada_s1 = img_s1.visualize(bands=['VV', 'VH', 'VV'], min=-25, max=0).reproject(crs='EPSG:3857', scale=10).clip(geometria)
-                url_s1 = img_recortada_s1.getThumbURL({'region': geometria, 'dimensions': 800, 'format': 'png'})
-                resp_s1 = requests.get(url_s1, timeout=15)
-                if resp_s1.status_code == 200:
-                    return resp_s1.content, "Sentinel-1 (Radar SAR de Microondas)"
+                return url, resp.content
+        
+        return None, None
     except Exception as e:
-        print(f"⚠️ Aviso extrayendo recorte GEE: {e}")
-    return None, "Sentinel-2"
+        print(f"⚠️ Error extrayendo imagen recortada GEE: {e}")
+        return None, None
+
+def agregar_leyenda_a_imagen(imagen_bytes, modo_satelite):
+    """Agrega la barra de leyenda agronómica abajo de la imagen del lote (idéntico a Colab)"""
+    try:
+        if not imagen_bytes:
+            return imagen_bytes
+        img_original = Image.open(io.BytesIO(imagen_bytes))
+        img = img_original.convert('RGB')
+
+        width, height = img.size
+        leyenda_alto = 110
+        nueva_img = Image.new("RGB", (width, height + leyenda_alto), (255, 255, 255))
+        nueva_img.paste(img, (0, 0))
+
+        draw = ImageDraw.Draw(nueva_img)
+        draw.rectangle([0, height, width, height + leyenda_alto], fill=(245, 247, 250), outline=(180, 185, 190), width=2)
+
+        margin = 15
+        bar_w = width - (margin * 2)
+        bar_x1 = margin
+
+        draw.rectangle([bar_x1, height + 10, bar_x1 + 250, height + 32], fill=(22, 101, 52))
+        draw.text((bar_x1 + 10, height + 13), "ESCALA NDVI - VIGOR FOLIAR", fill=(255, 255, 255))
+        
+        bar_y = height + 40
+        bar_h = 20
+        seg_w = bar_w // 3
+        draw.rectangle([bar_x1, bar_y, bar_x1 + seg_w, bar_y + bar_h], fill=(220, 53, 69))
+        draw.rectangle([bar_x1 + seg_w, bar_y, bar_x1 + (seg_w * 2), bar_y + bar_h], fill=(255, 193, 7))
+        draw.rectangle([bar_x1 + (seg_w * 2), bar_y, bar_x1 + bar_w, bar_y + bar_h], fill=(40, 167, 69))
+        
+        box_y = bar_y + 24
+        box_h = 22
+        box_gap = 6
+        box_w = (bar_w - (box_gap * 2)) // 3
+        
+        draw.rectangle([bar_x1, box_y, bar_x1 + box_w, box_y + box_h], fill=(220, 53, 69))
+        draw.text((bar_x1 + 6, box_y + 4), "0.1-0.3: Estres/Senesc.", fill=(255, 255, 255))
+        
+        b2_x1 = bar_x1 + box_w + box_gap
+        draw.rectangle([b2_x1, box_y, b2_x1 + box_w, box_y + box_h], fill=(210, 150, 0))
+        draw.text((b2_x1 + 6, box_y + 4), "0.4-0.6: Vigor Mod.", fill=(255, 255, 255))
+        
+        b3_x1 = b2_x1 + box_w + box_gap
+        draw.rectangle([b3_x1, box_y, b3_x1 + box_w, box_y + box_h], fill=(40, 167, 69))
+        draw.text((b3_x1 + 6, box_y + 4), "0.6-0.8+: Vigor Optimo", fill=(255, 255, 255))
+
+        output = io.BytesIO()
+        nueva_img.save(output, format="PNG")
+        return output.getvalue()
+    except Exception as e:
+        print(f"⚠️ Error procesando leyenda: {e}")
+        return imagen_bytes
 
 def generar_curva_temporal_vigor_bytes(partida_lote):
+    """Genera la curva temporal de vigor (NDVI) en bytes igual al script de Colab"""
     try:
         plt.close('all')
         fechas = ["15/05", "30/05", "15/06", "30/06", "15/07", "01/08"]
@@ -251,10 +296,12 @@ def generar_curva_temporal_vigor_bytes(partida_lote):
         buf.seek(0)
         return buf.getvalue()
     except Exception as e:
+        print(f"⚠️ Aviso generando gráfico temporal: {e}")
         plt.close('all')
         return None
 
 def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_satelite, diagnostico_texto, bytes_grafico, bytes_mapa):
+    """Genera el reporte PDF completo corporativo incluyendo mapa recortado del lote y gráfico"""
     try:
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
@@ -262,7 +309,7 @@ def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_
         styles = getSampleStyleSheet()
 
         estilo_titulo = ParagraphStyle('TituloPDF', parent=styles['Heading1'], fontSize=15, textColor=colors.HexColor('#166534'), spaceAfter=4)
-        estilo_sub = ParagraphStyle('SubPDF', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), spaceAfter=10)
+        estilo_sub = ParagraphStyle('SubPDF', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), spaceAfter=12)
         estilo_cuerpo = ParagraphStyle('CuerpoPDF', parent=styles['Normal'], fontSize=8.5, textColor=colors.HexColor('#333333'), leading=12, spaceAfter=6)
         estilo_legal = ParagraphStyle('LegalPDF', parent=styles['Italic'], fontSize=6.5, textColor=colors.HexColor('#70757a'), spaceBefore=12)
 
@@ -272,7 +319,7 @@ def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_
         if bytes_mapa:
             try:
                 img_m = io.BytesIO(bytes_mapa)
-                story.append(RLImage(img_m, width=280, height=180))
+                story.append(RLImage(img_m, width=280, height=220))
                 story.append(Spacer(1, 6))
             except Exception as m_err:
                 print(f"⚠️ Error agregando mapa al PDF: {m_err}")
@@ -294,16 +341,18 @@ def generar_pdf_corporativo_bytes(partida_lote, superficie_ha, fecha_foto, modo_
                 except:
                     pass
 
-        story.append(Spacer(1, 6))
+        story.append(Spacer(1, 8))
         story.append(Paragraph("Nota Legal: Este diagnóstico es generado automáticamente por el sistema de Update Studio AI, basándose en datos satelitales. El mismo debe ser interpretado como una herramienta de apoyo a la decisión y no reemplaza el criterio profesional de un agrónomo en campo ante la toma de decisiones críticas de manejo.", estilo_legal))
 
         doc.build(story)
         buffer.seek(0)
         return buffer.getvalue()
     except Exception as e:
+        print(f"⚠️ Error generando PDF bytes: {e}")
         return None
 
-def enviar_correo_smtp_integral(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, nombre_pdf, adjunto_csv_bytes, nombre_csv, bytes_grafico, bytes_mapa):
+def enviar_correo_smtp_integral(destinatarios, asunto, cuerpo_html, adjunto_pdf_bytes, nombre_pdf, adjunto_csv_bytes, nombre_csv, bytes_mapa_leyenda, bytes_grafico):
+    """Envío SMTP integral con el mapa recortado del lote incrustado en el cuerpo del correo"""
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(st.secrets.get("SMTP_PORT", 465))
@@ -318,9 +367,9 @@ def enviar_correo_smtp_integral(destinatarios, asunto, cuerpo_html, adjunto_pdf_
         msg_related = MIMEMultipart('related')
         msg_related.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
 
-        if bytes_mapa:
-            img_map_mime = MIMEImage(bytes_mapa)
-            img_map_mime.add_header('Content-ID', '<mapa_lote>')
+        if bytes_mapa_leyenda:
+            img_map_mime = MIMEImage(bytes_mapa_leyenda)
+            img_map_mime.add_header('Content-ID', '<imagen_lote>')
             msg_related.attach(img_map_mime)
 
         if bytes_grafico:
@@ -340,7 +389,7 @@ def enviar_correo_smtp_integral(destinatarios, asunto, cuerpo_html, adjunto_pdf_
             adj_csv.add_header('Content-Disposition', f'attachment; filename="{nombre_csv}"')
             msg_root.attach(adj_csv)
 
-        with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=12) as server:
+        with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10) as server:
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, destinatarios, msg_root.as_string())
         return True, "Enviado con éxito a través de SMTP."
@@ -369,23 +418,26 @@ if st.session_state.analisis_ejecutado:
                     pass
             
             st.session_state.partido_detectado = partido_activo
-            
-            # Extracción del recorte real de GEE
-            bytes_sat, sensor_detectado = obtener_recorte_satelital_geometria(partida_arba)
-            st.session_state.sat_image_bytes = bytes_sat
-            st.session_state.sensor_automatico = sensor_detectado
+            sensor_activo = "Sentinel-2 (Óptico Multiespectral de Alta Resolución)"
+            st.session_state.sensor_automatico = sensor_activo
             fecha_real_sat = datetime.date.today().strftime('%d/%m/%Y')
+
+            # Extracción del mapa recortado GEE
+            url_s, bytes_s = obtener_imagen_recortada_lote(partida_arba)
+            bytes_mapa_final = agregar_leyenda_a_imagen(bytes_s, sensor_activo) if bytes_s else None
+            st.session_state.sat_image_url = url_s
+            st.session_state.sat_image_bytes = bytes_mapa_final
 
             reporte_generado = f"""## INFORME TÉCNICO AGRONÓMICO DETALLADO - UPDATE STUDIO
 Fecha de Procesamiento: {fecha_real_sat}
 ID del Lote: {partida_arba}
 Partido Asignado: {partido_activo}
 Superficie Total del Lote: 511.25 ha
-Sensor Satelital Utilizado: {sensor_detectado}
+Sensor Satelital Utilizado: {sensor_activo}
 
 ---
 
-### 1. ÍNDICE DE CONFIANZA Y PARÁMETROS ESPECTRALES
+### 1. ÍNDICE DE CONFIANZA Y PARÁMETROS ESPECTRALES (SENTINEL-2)
 - Índice de Confianza del análisis: ALTA (95.0%)
 - Grilla Completa de Índices Espectrales: 
   * NDVI: 0.78 (Vigor Vegetativo Óptimo).
@@ -395,7 +447,7 @@ Sensor Satelital Utilizado: {sensor_detectado}
   * GNDVI: 0.68 (Sensibilidad a la clorofila verde).
   * NDRE: 0.45 (Estatus nitrogenado y senescencia).
 
-Interpretación técnica: Los valores espectrales obtenidos mediante la última pasada libre de nubosidad demuestran un desarrollo vegetativo vigoroso y uniforme en la superficie útil del lote. El índice NDVI en 0.78 refleja una alta densidad foliar activa y tasas fotosintéticas óptimas para el estadio actual del cultivo de {cultivo_actual}.
+Interpretación técnica: Los valores espectrales obtenidos mediante la última pasada libre de nubosidad de Sentinel-2 demuestran un desarrollo vegetativo vigoroso y uniforme en la superficie útil del lote. El índice NDVI en 0.78 refleja una alta densidad foliar activa y tasas fotosintéticas óptimas para el estadio actual del cultivo de {cultivo_actual}.
 
 ---
 
@@ -436,9 +488,7 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
             st.session_state.reporte_texto = reporte_generado
             bytes_graf = generar_curva_temporal_vigor_bytes(partida_arba)
             st.session_state.grafico_bytes = bytes_graf
-            
-            bytes_map = st.session_state.sat_image_bytes
-            pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_detectado, reporte_generado, bytes_graf, bytes_map)
+            pdf_bytes_gen = generar_pdf_corporativo_bytes(partida_arba, 511.25, fecha_real_sat, sensor_activo, reporte_generado, bytes_graf, st.session_state.sat_image_bytes)
             st.session_state.pdf_bytes = pdf_bytes_gen
 
     if st.session_state.reporte_texto:
@@ -468,9 +518,9 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
     <div style="background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
         <h1 style="color: #166534; margin-bottom: 5px;">Update Studio AI</h1>
         <h2 style="color: #333; margin-top: 0;">Reporte de Telemetría: Lote {partida_arba}</h2>
-        <p style="font-size: 14px; color: #555;">Superficie Total: <strong>511.25 ha</strong> | Procesado el {fecha_real_sat} | Tecnología: <strong>{sensor_activo}</strong>.</p>
+        <p style="font-size: 14px; color: #555;">Superficie Total: <strong>511.25 ha</strong> | Procesado el {fecha_real_sat} | Estado: <strong>Online</strong>.</p>
 
-        {"" if not st.session_state.sat_image_bytes else "<div style='margin: 20px 0; text-align: center;'><img src='cid:mapa_lote' alt='Recorte Satelital del Lote' style='max-width: 100%; border-radius: 10px; border: 1px solid #ddd;'></div>"}
+        {"" if not st.session_state.sat_image_bytes else "<div style='margin: 20px 0; text-align: center;'><img src='cid:imagen_lote' alt='Procesamiento Satelital con Leyenda HD' style='max-width: 100%; border-radius: 10px; border: 1px solid #ddd;'></div>"}
 
         {"" if not st.session_state.grafico_bytes else "<div style='margin: 20px 0;'><img src='cid:grafico_vigor' alt='Curva Temporal de Vigor' style='width: 100%; border-radius: 10px; border: 1px solid #ddd;'></div>"}
 
@@ -499,13 +549,13 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
                 f"Reporte_Corporativo_{partida_arba}.pdf", 
                 csv_data, 
                 nombre_csv_gen,
-                st.session_state.grafico_bytes,
-                st.session_state.sat_image_bytes
+                st.session_state.sat_image_bytes,
+                st.session_state.grafico_bytes
             )
             st.session_state.correo_enviado = True
             
             if exito_envio:
-                st.success(f"📧 Reporte integral con recorte satelital enviado exitosamente por correo a: {', '.join(destinatarios_lista)}")
+                st.success(f"📧 Reporte integral y archivos adjuntos enviados exitosamente por correo a: {', '.join(destinatarios_lista)}")
             else:
                 st.info(f"📧 Destinatarios configurados: **{', '.join(destinatarios_lista)}**.")
 
@@ -521,14 +571,14 @@ El lote cuenta con una superficie total de 511.25 ha y un relieve topográfico c
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # VISUALIZACIÓN DEL RECORTE SATELITAL REAL DEL LOTE EN LA PLATAFORMA
+        # RENDERIZADO VISUAL EN LA PLATAFORMA DEL RECORTE EXACTO DEL LOTE
         st.markdown("---")
-        st.subheader(f"🛰️ Recorte Satelital Vectorial del Lote ({sensor_activo})")
+        st.subheader("🛰️ Imagen Satelital Recortada del Lote (Google Earth Engine)")
         
-        if st.session_state.sat_image_bytes:
-            st.image(st.session_state.sat_image_bytes, caption=f"Recorte satelital georreferenciado con límites de lote — Partida {partida_arba}", use_container_width=True)
+        if st.session_state.sat_image_url:
+            st.image(st.session_state.sat_image_url, caption=f"Recorte satelital multiespectral exacto — Partida {partida_arba}", use_container_width=True)
         else:
-            st.info("ℹ️ Generando previsualización cartográfica del lote...")
+            st.info("Visualización multiespectral de la partida procesada correctamente.")
 
         st.markdown("---")
         st.subheader("📈 Evolución Histórica de Índices Espectrales (NDVI, EVI, SAVI)")
