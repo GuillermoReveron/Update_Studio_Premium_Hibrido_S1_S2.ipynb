@@ -91,9 +91,9 @@ if analizar_btn:
             Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
             """
             
-            # Use gemini-1.5-flash which has proper free tier allocation
+            # Use gemini-2.5-flash which is standard for the new google-genai client
             response = client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
             )
             
