@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 import os
 
 # Page Config
@@ -58,12 +58,8 @@ if not gemini_key:
     st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
     st.stop()
 
-# Initialize the GenAI client safely
-try:
-    client = genai.Client(api_key=gemini_key)
-except Exception as e:
-    st.error(f"Error al inicializar el cliente de IA: {e}")
-    st.stop()
+# Configure Gemini using the classic SDK
+genai.configure(api_key=gemini_key)
 
 # Sidebar - Controls & Parameters
 st.sidebar.header("⚙️ Configuración de Lote")
@@ -90,22 +86,20 @@ if analizar_btn:
         Sé técnico, preciso y directo, utilizando terminología agronómica profesional en español.
         """
         
-        # Modelos oficiales estándar para el cliente de producción actual
-        modelos_a_probar = ["gemini-1.5-pro", "gemini-1.5-flash"]
+        # Cascada automática de modelos con la librería clásica
+        modelos_a_probar = ["gemini-pro", "gemini-1.5-flash", "gemini-1.5-pro"]
         response = None
         ultimo_error = None
         
-        for m in modelos_a_probar:
+        for nombre_modelo in modelos_a_probar:
             try:
-                response = client.models.generate_content(
-                    model=m,
-                    contents=prompt,
-                )
+                model = genai.GenerativeModel(nombre_modelo)
+                response = model.generate_content(prompt)
                 if response and response.text:
-                    break 
+                    break
             except Exception as err:
                 ultimo_error = err
-                continue 
+                continue
         
         if response and response.text:
             st.success("¡Análisis agronómico completado con éxito!")
