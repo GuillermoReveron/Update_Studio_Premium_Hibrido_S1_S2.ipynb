@@ -4,10 +4,10 @@ import os
 import pandas as pd
 import datetime
 
-# Page Config with the custom title and favicon placeholder
+# Page Config con favicon y título oficial
 st.set_page_config(
     page_title="Update Studio AI — Plataforma Agrícola Avanzada",
-    page_icon="🌱",
+    page_icon="logo_update_studio.png" if os.path.exists("logo_update_studio.png") else "🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -58,9 +58,11 @@ st.markdown("""
         margin-bottom: 25px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .sidebar-logo-container {
-        text-align: center;
-        padding: 10px 0 20px 0;
+    .main-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 5px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -79,28 +81,14 @@ except Exception:
 if not gemini_key:
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-# Header Section with Brand integration
-st.markdown("<h1>🌱 Update Studio AI — Plataforma Agrícola Avanzada</h1>", unsafe_allow_html=True)
-st.markdown("### Sistema de Monitoreo Satelital, Radar y Diagnóstico por Inteligencia Artificial")
-
-# Warning if key is missing
-if not gemini_key:
-    st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
-    st.stop()
-
-# Configure Gemini using the classic SDK
-genai.configure(api_key=gemini_key)
-
-# Sidebar - Controls, Logo & Parameters
-st.sidebar.markdown('<div class="sidebar-logo-container">', unsafe_allow_html=True)
-# Aquí integramןo el logo oficial. Asegúrate de subir la imagen como 'logo_update_studio.png' a tu repositorio de GitHub.
+# Sidebar - Logo Oficial arriba en la barra lateral
 logo_path = "logo_update_studio.png"
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, use_container_width=True)
 else:
     st.sidebar.markdown("### ⚡ UPDATE STUDIO AI")
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
+st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Configuración de Lote y Envío")
 
 # Entrada de Partida ARBA
@@ -115,6 +103,24 @@ email_cliente = st.sidebar.text_input("Correo del Cliente / Administrador", valu
 
 st.sidebar.markdown("---")
 analizar_btn = st.sidebar.button("🚀 Analizar Lote y Enviar Reportes")
+
+# Header Section Principal con el Logo Oficial integrado al lado del título
+col_logo_head, col_title_head = st.columns([1, 8])
+with col_logo_head:
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=75)
+with col_title_head:
+    st.markdown("<h1>Update Studio AI — Plataforma Agrícola Avanzada</h1>", unsafe_allow_html=True)
+
+st.markdown("### Sistema de Monitoreo Satelital, Radar y Diagnóstico por Inteligencia Artificial")
+
+# Warning if key is missing
+if not gemini_key:
+    st.error("⚠️ Falta configurar la clave 'GEMINI_API_KEY' en los secretos de Streamlit Cloud.")
+    st.stop()
+
+# Configure Gemini using the classic SDK
+genai.configure(api_key=gemini_key)
 
 # Inicializamos Session State para persistencia absoluta
 if "analisis_ejecutado" not in st.session_state:
@@ -260,7 +266,7 @@ if st.session_state.analisis_ejecutado:
         st.markdown("---")
         st.markdown(st.session_state.reporte_texto)
         
-        # 1. VISUALIZACIÓN ESPACIAL: Imagen / Mapa Temático del Lote
+        # 1. VISUALIZACIÓN ESPACIAL: Mapa Temático del Lote
         st.markdown("---")
         st.subheader("🛰️ Visualización Espacial y Mapa Temático del Lote")
         st.markdown(
